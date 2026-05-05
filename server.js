@@ -17,11 +17,19 @@ if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir, { recursive: true });
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+
+app.set('trust proxy', 1);
+
 app.use(session({
   secret: SESSION_SECRET,
   resave: false,
   saveUninitialized: false,
-  cookie: { maxAge: 1000 * 60 * 60 * 8 }
+  cookie: {
+    maxAge: 1000 * 60 * 60 * 8,
+    httpOnly: true,
+    secure: false,
+    sameSite: 'lax'
+  }
 }));
 
 // ================= UPLOAD =================
