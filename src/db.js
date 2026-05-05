@@ -1,12 +1,36 @@
 const path = require("path");
 const fs = require("fs");
-const sqlite3 = require("sqlite3");
-const { open } = require("sqlite");
+const Database = require("better-sqlite3");
 
 const DATA_DIR = path.join(__dirname, "..", "data");
 const DB_PATH = path.join(DATA_DIR, "database.sqlite");
 
 let db = null;
+
+function createAsyncAdapter(database) {
+  return {
+    exec: async (sql) => {
+      database.exec(sql);
+    },
+
+    get: async (sql, params = []) => {
+      return database.prepare(sql).get(params);
+    },
+
+    all: async (sql, params = []) => {
+      return database.prepare(sql).all(params);
+    },
+
+    run: async (sql, params = []) => {
+      const result = database.prepare(sql).run(params);
+
+      return {
+        lastID: result.lastInsertRowid,
+        changes: result.changes
+      };
+    }
+  };
+}
 
 async function getDb() {
   if (db) return db;
@@ -15,15 +39,11 @@ async function getDb() {
     fs.mkdirSync(DATA_DIR, { recursive: true });
   }
 
-  db = await open({
-    filename: DB_PATH,
-    driver: sqlite3.Database
-  });
+  const database = new Database(DB_PATH);
+
+  db = createAsyncAdapter(database);
 
   await db.exec("PRAGMA foreign_keys = ON");
-
-
-  
 
   await db.exec(`
     CREATE TABLE IF NOT EXISTS settings (
@@ -110,10 +130,10 @@ async function getDb() {
       FOREIGN KEY(order_id) REFERENCES orders(id)
     );
   `);
-  
-  await addColumnIfNotExists(db, 'orders', 'address', 'TEXT');
-  await addColumnIfNotExists(db, 'orders', 'payment', 'TEXT');
-  await addColumnIfNotExists(db, 'orders', 'note', 'TEXT');
+
+  await addColumnIfNotExists(db, "orders", "address", "TEXT");
+  await addColumnIfNotExists(db, "orders", "payment", "TEXT");
+  await addColumnIfNotExists(db, "orders", "note", "TEXT");
 
   await db.run(`
     INSERT OR IGNORE INTO settings (id)
@@ -122,7 +142,6 @@ async function getDb() {
 
   return db;
 }
-
 
 async function addColumnIfNotExists(db, table, column, type) {
   const columns = await db.all(`PRAGMA table_info(${table})`);
