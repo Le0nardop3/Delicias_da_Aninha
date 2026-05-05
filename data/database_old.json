@@ -1,0 +1,110 @@
+{
+  "users": [
+    {
+      "id": 1,
+      "username": "admin",
+      "password_hash": "$2a$10$X0BrQymUaohTL/9gsw6q2ON52hKzsciiQowp7Z54VbbW3xLUUVXOC"
+    }
+  ],
+  "audit_logs": [],
+  "access_logs": [
+    {
+      "id": 1,
+      "page": "loja",
+      "path": "/",
+      "ip": "::1",
+      "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36",
+      "created_at": "2026-05-04T16:56:47.675Z"
+    }
+  ],
+  "categories": [
+    {
+      "id": 1,
+      "name": "Açaí",
+      "sort_order": 1
+    },
+    {
+      "id": 2,
+      "name": "Lanches",
+      "sort_order": 2
+    },
+    {
+      "id": 3,
+      "name": "Bebidas",
+      "sort_order": 3
+    },
+    {
+      "id": 4,
+      "name": "Adicionais",
+      "sort_order": 4
+    }
+  ],
+  "products": [
+    {
+      "id": 1,
+      "name": "Açaí 500ml",
+      "description": "Açaí cremoso com banana, granola e leite condensado.",
+      "price": 18.9,
+      "category_id": 1,
+      "image": "",
+      "active": 1,
+      "featured": 1,
+      "created_at": "2026-04-26T15:06:35.806Z"
+    },
+    {
+      "id": 2,
+      "name": "Açaí 700ml",
+      "description": "Porção reforçada para matar a fome de verdade.",
+      "price": 24.9,
+      "category_id": 1,
+      "image": "",
+      "active": 1,
+      "featured": 1,
+      "created_at": "2026-04-26T15:06:35.806Z"
+    },
+    {
+      "id": 3,
+      "name": "X-Burger Artesanal",
+      "description": "Pão brioche, carne artesanal, queijo, salada e molho especial.",
+      "price": 19.9,
+      "category_id": 2,
+      "image": "",
+      "active": 1,
+      "featured": 1,
+      "created_at": "2026-04-26T15:06:35.806Z"
+    },
+    {
+      "id": 4,
+      "name": "X-Bacon",
+      "description": "Hambúrguer, queijo, bacon crocante, salada e molho da casa.",
+      "price": 24.9,
+      "category_id": 2,
+      "image": "",
+      "active": 1,
+      "featured": 0,
+      "created_at": "2026-04-26T15:06:35.806Z"
+    },
+    {
+      "id": 5,
+      "name": "Refrigerante Lata",
+      "description": "Lata 350ml bem gelada.",
+      "price": 6,
+      "category_id": 3,
+      "image": "",
+      "active": 1,
+      "featured": 0,
+      "created_at": "2026-04-26T15:06:35.806Z"
+    },
+    {
+      "id": 6,
+      "name": "Sanduiche natural",
+      "description": "Um Sanduiche com ....",
+      "price": 7.99,
+      "category_id": 2,
+      "image": "",
+      "active": 1,
+      "featured": 1,
+      "created_at": "2026-04-26T15:13:14.339Z"
+    }
+  ]
+}

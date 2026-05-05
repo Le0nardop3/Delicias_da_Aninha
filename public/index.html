@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Delícias da Aninha | Pedidos Online</title>
+  <link rel="icon" href="/assets/logo.png" type="image/png">
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div class="topbar">💜 Comida saudável com sabor e amor • Delivery e retirada • Peça pelo WhatsApp</div>
+
+  <header class="header">
+    <a href="#" class="logo"><span>Delícias</span> da Aninha</a>
+    <nav>
+      <a href="#cardapio">Cardápio</a>
+      <a href="#especiais">Especiais</a>
+      <a href="#beneficios">Como funciona</a>
+      <a href="/admin/login.html">Admin</a>
+    </nav>
+    <button class="cart-button" id="openCart">Sacola <strong id="cartCount">0</strong></button>
+  </header>
+
+  <section class="hero">
+    <div class="hero-content">
+      <span class="badge">Comida saudável • Doces artesanais • Delivery</span>
+      <h1>Escolha suas delícias favoritas e finalize pelo WhatsApp.</h1>
+      <p>Produtos feitos com carinho, sabor e cuidado para deixar sua rotina mais leve e gostosa.</p>
+
+      <div class="hero-actions">
+        <a href="#cardapio" class="btn primary">Ver delícias disponíveis</a>
+        <button class="btn ghost" id="openCartHero">Abrir sacola</button>
+      </div>
+
+      <div class="hero-mini-info">
+        <span>💜 Feito com amor</span>
+        <span>💳 Pix, cartão ou dinheiro</span>
+        <span>📲 Pedido direto no WhatsApp</span>
+      </div>
+    </div>
+
+    <div class="hero-showcase">
+      <div class="hero-logo">
+        <img src="/assets/logo.png" alt="Delícias da Aninha">
+      </div>
+      <div class="blob"></div>
+
+      <div class="main-bowl">
+        <div class="bowl-emoji">🍫</div>
+        <span class="tag-discount">Mais pedido</span>
+        <h3>Doces saudáveis</h3>
+        <p>Sobremesas artesanais para comer bem sem abrir mão do sabor.</p>
+        <strong>Peça agora</strong>
+      </div>
+
+      <div class="floating-card card-one">🍯 <span>Sabor artesanal</span></div>
+      <div class="floating-card card-two">🥣 <span>Opções saudáveis</span></div>
+    </div>
+  </section>
+
+  <section class="quick-categories">
+    <a href="#cardapio">🍫 Doces</a>
+    <a href="#cardapio">🍯 Sobremesas</a>
+    <a href="#cardapio">🥣 Saudáveis</a>
+    <a href="#cardapio">🎁 Especiais</a>
+  </section>
+
+  <section class="promo-strip" id="especiais">
+    <div>
+      <span>Delícias da Aninha</span>
+      <h2>Comida saudável com sabor e amor</h2>
+      <p>Escolha os produtos disponíveis, monte sua sacola e envie o pedido diretamente pelo WhatsApp.</p>
+    </div>
+    <a href="#cardapio" class="btn dark">Fazer meu pedido</a>
+  </section>
+
+  <main class="container" id="cardapio">
+    <div class="section-title">
+      <span>Cardápio online</span>
+      <h2>Escolha suas delícias</h2>
+      <p>Use as categorias para navegar e adicione os itens na sacola.</p>
+    </div>
+
+    <div class="filters" id="filters"></div>
+    <div class="products" id="products"></div>
+  </main>
+
+  <section class="benefits" id="beneficios">
+    <div class="benefit">📲 <strong>Pedido pelo WhatsApp</strong><span>Você monta a sacola e envia tudo organizado</span></div>
+    <div class="benefit">💳 <strong>Pagamento facilitado</strong><span>Pix, dinheiro ou cartão no fechamento</span></div>
+    <div class="benefit">💜 <strong>Sabor e cuidado</strong><span>Produtos preparados com carinho</span></div>
+  </section>
+
+  <footer>
+    <strong>Delícias da Aninha</strong>
+    <p>Comida saudável com sabor e amor.</p>
+  </footer>
+
+  <aside class="cart" id="cart">
+    <div class="cart-panel">
+      <div class="cart-header">
+        <h2>Sua sacola</h2>
+        <button id="closeCart">×</button>
+      </div>
+
+      <div class="cart-items" id="cartItems"></div>
+      <div class="cart-total">Total: <strong id="cartTotal">R$ 0,00</strong></div>
+
+      <form class="checkout" id="checkoutForm">
+        <input type="text" id="customerName" placeholder="Seu nome" required>
+        <input type="text" id="customerAddress" placeholder="Endereço ou retirada no balcão" required>
+        <select id="paymentMethod" required>
+          <option value="">Forma de pagamento</option>
+          <option>Pix</option>
+          <option>Dinheiro</option>
+          <option>Cartão</option>
+        </select>
+        <textarea id="orderNote" placeholder="Observação do pedido"></textarea>
+        <button type="submit" class="btn primary full">Enviar pedido no WhatsApp</button>
+      </form>
+    </div>
+  </aside>
+
+  <script src="app.js"></script>
+  <script>
+    const openCartHero = document.getElementById('openCartHero');
+    const openCartButton = document.getElementById('openCart');
+
+    if (openCartHero && openCartButton) {
+      openCartHero.addEventListener('click', () => openCartButton.click());
+    }
+  </script>
+</body>
+</html>

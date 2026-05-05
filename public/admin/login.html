@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="icon" href="/assets/logo.png" type="image/png">
+  <title>Delícias da Aninha | Acesso Admin</title>
+  <link rel="stylesheet" href="admin.css" />
+</head>
+<body class="login-body">
+
+  <form class="login-card" id="loginForm">
+    <h1>Delícias da Aninha</h1>
+    <p>Painel administrativo</p>
+
+    <input type="text" id="username" placeholder="Usuário" required autocomplete="username">
+
+    <input type="password" id="password" placeholder="Senha" required autocomplete="current-password">
+
+    <button type="submit">Entrar no painel</button>
+
+    <span id="loginMsg"></span>
+
+    <small>Acesso restrito</small>
+  </form>
+
+  <script>
+    document.getElementById('loginForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+
+      const msg = document.getElementById('loginMsg');
+      msg.textContent = 'Entrando...';
+
+      const res = await fetch('/api/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          username: document.getElementById('username').value,
+          password: document.getElementById('password').value
+        })
+      });
+
+      if (res.ok) {
+        window.location.href = '/admin/painel.html';
+      } else {
+        msg.textContent = 'Usuário ou senha inválidos.';
+      }
+    });
+  </script>
+
+</body>
+</html>
