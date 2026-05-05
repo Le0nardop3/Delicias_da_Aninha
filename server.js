@@ -61,12 +61,12 @@ async function logAudit(req, action, details = {}) {
     const db = await getDb();
 
     const user = req.session?.userId
-      ? await db.get(`SELECT username FROM admin_user WHERE id = ?`, [req.session.userId])
+      ? await db.get(`SELECT username FROM admin_user WHERE id = $1`, [req.session.userId])
       : null;
 
     await db.run(`
       INSERT INTO audit_logs (action, details)
-      VALUES (?, ?)
+      VALUES ($1, $2)
     `, [
       action,
       JSON.stringify({
@@ -80,8 +80,6 @@ async function logAudit(req, action, details = {}) {
   }
 }
 
-
-
 async function logAccess(req, page = 'loja') {
   try {
     const db = await getDb();
@@ -92,10 +90,10 @@ async function logAccess(req, page = 'loja') {
     const recent = await db.get(`
       SELECT id
       FROM access_logs
-      WHERE ip = ?
-        AND user_agent = ?
-        AND route = ?
-        AND datetime(created_at) >= datetime('now', '-30 minutes')
+      WHERE ip = $1
+        AND user_agent = $2
+        AND route = $3
+        AND created_at >= NOW() - INTERVAL '30 minutes'
       ORDER BY id DESC
       LIMIT 1
     `, [ip, userAgent, page]);
@@ -104,15 +102,13 @@ async function logAccess(req, page = 'loja') {
 
     await db.run(`
       INSERT INTO access_logs (ip, user_agent, route)
-      VALUES (?, ?, ?)
+      VALUES ($1, $2, $3)
     `, [ip, userAgent, page]);
 
   } catch (err) {
     console.error('Erro access log:', err.message);
   }
 }
-
-
 
 // ================= ROTAS PUBLICAS =================
 
@@ -185,7 +181,7 @@ app.post('/api/login', async (req, res) => {
   const { username, password } = req.body;
 
   const user = await db.get(`
-    SELECT * FROM admin_user WHERE username = ?
+    SELECT * FROM admin_user WHERE username = $1
   `, [username]);
 
   if (!user || !bcrypt.compareSync(String(password || ''), user.password_hash)) {
@@ -210,7 +206,7 @@ app.get('/api/admin/me', requireAuth, async (req, res) => {
   const db = await getDb();
 
   const user = await db.get(`
-    SELECT username FROM admin_user WHERE id = ?
+    SELECT username FROM admin_user WHERE id = $1
   `, [req.session.userId]);
 
   res.json({ ok: true, username: user ? user.username : 'admin' });
@@ -225,7 +221,7 @@ app.put('/api/admin/account', requireAuth, async (req, res) => {
   const confirmPassword = String(req.body.confirmPassword || '');
 
   const user = await db.get(`
-    SELECT * FROM admin_user WHERE id = ?
+    SELECT * FROM admin_user WHERE id = $1
   `, [req.session.userId]);
 
   if (!user) return res.status(404).json({ error: 'Usuário não encontrado.' });
@@ -248,8 +244,8 @@ app.put('/api/admin/account', requireAuth, async (req, res) => {
 
   await db.run(`
     UPDATE admin_user
-    SET username = ?, password_hash = ?, updated_at = CURRENT_TIMESTAMP
-    WHERE id = ?
+    SET username = $1, password_hash = $2, updated_at = CURRENT_TIMESTAMP
+    WHERE id = $3
   `, [newUsername, bcrypt.hashSync(newPassword, 10), user.id]);
 
   await logAudit(req, 'alterou usuário/senha do admin', { novo_usuario: newUsername });
@@ -289,20 +285,21 @@ app.post('/api/admin/products', requireAuth, upload.single('image'), async (req,
   if (!name) return res.status(400).json({ error: 'Nome obrigatório' });
   if (!price || price <= 0) return res.status(400).json({ error: 'Preço inválido' });
 
-  const result = await db.run(`
+  const result = await db.get(`
     INSERT INTO products (
       name, description, price, category_id, image_url, active, featured
     )
-    VALUES (?, ?, ?, ?, ?, ?, ?)
+    VALUES ($1, $2, $3, $4, $5, $6, $7)
+    RETURNING id
   `, [name, description, price, category_id, image, active, featured]);
 
   await logAudit(req, 'criou produto', {
-    id: result.lastID,
+    id: result.id,
     nome: name,
     preco: price
   });
 
-  res.json({ ok: true, id: result.lastID });
+  res.json({ ok: true, id: result.id });
 });
 
 app.put('/api/admin/products/:id', requireAuth, upload.single('image'), async (req, res) => {
@@ -310,7 +307,7 @@ app.put('/api/admin/products/:id', requireAuth, upload.single('image'), async (r
 
   const id = Number(req.params.id);
 
-  const current = await db.get(`SELECT * FROM products WHERE id = ?`, [id]);
+  const current = await db.get(`SELECT * FROM products WHERE id = $1`, [id]);
   if (!current) return res.status(404).json({ error: 'Produto não encontrado' });
 
   const name = String(req.body.name || '').trim();
@@ -326,8 +323,15 @@ app.put('/api/admin/products/:id', requireAuth, upload.single('image'), async (r
 
   await db.run(`
     UPDATE products
-    SET name = ?, description = ?, price = ?, category_id = ?, image_url = ?, active = ?, featured = ?
-    WHERE id = ?
+    SET 
+      name = $1,
+      description = $2,
+      price = $3,
+      category_id = $4,
+      image_url = $5,
+      active = $6,
+      featured = $7
+    WHERE id = $8
   `, [name, description, price, category_id, image, active, featured, id]);
 
   await logAudit(req, 'editou produto', {
@@ -344,9 +348,9 @@ app.delete('/api/admin/products/:id', requireAuth, async (req, res) => {
   const db = await getDb();
 
   const id = Number(req.params.id);
-  const product = await db.get(`SELECT name FROM products WHERE id = ?`, [id]);
+  const product = await db.get(`SELECT name FROM products WHERE id = $1`, [id]);
 
-  await db.run(`DELETE FROM products WHERE id = ?`, [id]);
+  await db.run(`DELETE FROM products WHERE id = $1`, [id]);
 
   await logAudit(req, 'excluiu produto', {
     id,
@@ -366,22 +370,23 @@ app.post('/api/admin/categories', requireAuth, async (req, res) => {
   if (!name) return res.status(400).json({ error: 'Informe o nome da categoria.' });
 
   const exists = await db.get(`
-    SELECT id FROM categories WHERE LOWER(name) = LOWER(?)
+    SELECT id FROM categories WHERE LOWER(name) = LOWER($1)
   `, [name]);
 
   if (exists) return res.status(400).json({ error: 'Essa categoria já existe.' });
 
-  const result = await db.run(`
+  const result = await db.get(`
     INSERT INTO categories (name, active, sort_order)
-    VALUES (?, 1, 99)
+    VALUES ($1, 1, 99)
+    RETURNING id
   `, [name]);
 
   await logAudit(req, 'criou categoria', {
-    id: result.lastID,
+    id: result.id,
     categoria: name
   });
 
-  res.json({ id: result.lastID, name, active: 1, sort_order: 99 });
+  res.json({ id: result.id, name, active: 1, sort_order: 99 });
 });
 
 // ================= PEDIDOS =================
@@ -401,9 +406,10 @@ app.post('/api/orders', async (req, res) => {
     total += Number(item.price || 0) * Number(item.quantity || 0);
   }
 
-  const result = await db.run(`
+  const result = await db.get(`
     INSERT INTO orders (customer_name, customer_phone, address, payment, note, total)
-    VALUES (?, ?, ?, ?, ?, ?)
+    VALUES ($1, $2, $3, $4, $5, $6)
+    RETURNING id
   `, [
     customer_name || '',
     customer_phone || '',
@@ -413,12 +419,12 @@ app.post('/api/orders', async (req, res) => {
     total
   ]);
 
-  const orderId = result.lastID;
+  const orderId = result.id;
 
   for (const item of items) {
     await db.run(`
       INSERT INTO order_items (order_id, product_name, quantity, price)
-      VALUES (?, ?, ?, ?)
+      VALUES ($1, $2, $3, $4)
     `, [
       orderId,
       item.name,
@@ -453,7 +459,7 @@ app.get('/api/admin/orders', requireAuth, async (req, res) => {
     order.items = await db.all(`
       SELECT *
       FROM order_items
-      WHERE order_id = ?
+      WHERE order_id = $1
     `, [order.id]);
   }
 
@@ -474,8 +480,8 @@ app.put('/api/admin/orders/:id/status', requireAuth, async (req, res) => {
 
   await db.run(`
     UPDATE orders
-    SET status = ?
-    WHERE id = ?
+    SET status = $1
+    WHERE id = $2
   `, [status, id]);
 
   await logAudit(req, 'alterou status do pedido', {
@@ -534,7 +540,12 @@ app.get('/api/admin/access-logs', requireAuth, async (req, res) => {
 
   const today = new Date().toISOString().slice(0, 10);
   const uniqueIps = new Set(logs.map(l => l.ip)).size;
-  const todayCount = logs.filter(l => String(l.created_at || '').startsWith(today)).length;
+
+  const todayCount = logs.filter(l => {
+    if (!l.created_at) return false;
+    const date = new Date(l.created_at).toISOString().slice(0, 10);
+    return date === today;
+  }).length;
 
   res.json({
     total: logs.length,
@@ -551,7 +562,6 @@ app.get('/api/admin/access-logs', requireAuth, async (req, res) => {
   });
 });
 
-
 // ================= CONFIGURAÇÕES DA LOJA ADMIN =================
 
 app.get('/api/admin/settings', requireAuth, async (req, res) => {
@@ -565,9 +575,6 @@ app.get('/api/admin/settings', requireAuth, async (req, res) => {
 
   res.json(settings);
 });
-
-
-
 
 app.put('/api/admin/settings', requireAuth, async (req, res) => {
   const db = await getDb();
@@ -584,8 +591,8 @@ app.put('/api/admin/settings', requireAuth, async (req, res) => {
   await db.run(`
     UPDATE settings
     SET
-      whatsapp_number = ?,
-      is_open = ?,
+      whatsapp_number = $1,
+      is_open = $2,
       updated_at = CURRENT_TIMESTAMP
     WHERE id = 1
   `, [
@@ -601,10 +608,6 @@ app.put('/api/admin/settings', requireAuth, async (req, res) => {
 
   res.json({ ok: true });
 });
-
-
-
-
 
 // ================= START =================
 

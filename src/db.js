@@ -1,116 +1,89 @@
-const path = require("path");
-const fs = require("fs");
-const Database = require("better-sqlite3");
+const { Pool } = require('pg');
 
-const DATA_DIR = path.join(__dirname, "..", "data");
-const DB_PATH = path.join(DATA_DIR, "database.sqlite");
+let pool = null;
 
-let db = null;
-
-function createAsyncAdapter(database) {
+function createAdapter(pool) {
   return {
     exec: async (sql) => {
-      database.exec(sql);
+      await pool.query(sql);
     },
 
     get: async (sql, params = []) => {
-      return database.prepare(sql).get(params);
+      const result = await pool.query(sql, params);
+      return result.rows[0] || null;
     },
 
     all: async (sql, params = []) => {
-      return database.prepare(sql).all(params);
+      const result = await pool.query(sql, params);
+      return result.rows;
     },
 
     run: async (sql, params = []) => {
-      const result = database.prepare(sql).run(params);
-
+      const result = await pool.query(sql, params);
       return {
-        lastID: result.lastInsertRowid,
-        changes: result.changes
+        lastID: result.rows?.[0]?.id || null,
+        changes: result.rowCount
       };
     }
   };
 }
 
 async function getDb() {
-  if (db) return db;
+  if (pool) return createAdapter(pool);
 
-  if (!fs.existsSync(DATA_DIR)) {
-    fs.mkdirSync(DATA_DIR, { recursive: true });
-  }
+  pool = new Pool({
+    connectionString: process.env.DATABASE_URL
+  });
 
-  const database = new Database(DB_PATH);
+  const db = createAdapter(pool);
 
-  db = createAsyncAdapter(database);
-
-  await db.exec("PRAGMA foreign_keys = ON");
-
+  // ⚠️ CREATE TABLES (adaptado pro postgres)
   await db.exec(`
     CREATE TABLE IF NOT EXISTS settings (
-      id INTEGER PRIMARY KEY CHECK (id = 1),
-      store_name TEXT NOT NULL DEFAULT 'Delícias da Aninha',
-      whatsapp_number TEXT NOT NULL DEFAULT '5583988061752',
+      id INTEGER PRIMARY KEY,
+      store_name TEXT DEFAULT 'Delícias da Aninha',
+      whatsapp_number TEXT DEFAULT '5583988061752',
       logo_url TEXT DEFAULT '',
       primary_color TEXT DEFAULT '#9b2242',
       secondary_color TEXT DEFAULT '#006b9c',
-      delivery_enabled INTEGER NOT NULL DEFAULT 1,
-      pickup_enabled INTEGER NOT NULL DEFAULT 1,
-      is_open INTEGER NOT NULL DEFAULT 1,
-      created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-      updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+      delivery_enabled INTEGER DEFAULT 1,
+      pickup_enabled INTEGER DEFAULT 1,
+      is_open INTEGER DEFAULT 1,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     );
 
     CREATE TABLE IF NOT EXISTS categories (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      id SERIAL PRIMARY KEY,
       name TEXT NOT NULL,
-      active INTEGER NOT NULL DEFAULT 1,
-      sort_order INTEGER NOT NULL DEFAULT 0,
-      created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-      updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+      active INTEGER DEFAULT 1,
+      sort_order INTEGER DEFAULT 0,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     );
 
     CREATE TABLE IF NOT EXISTS products (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      id SERIAL PRIMARY KEY,
       category_id INTEGER,
       name TEXT NOT NULL,
       description TEXT DEFAULT '',
-      price REAL NOT NULL DEFAULT 0,
+      price REAL DEFAULT 0,
       image_url TEXT DEFAULT '',
-      active INTEGER NOT NULL DEFAULT 1,
-      featured INTEGER NOT NULL DEFAULT 0,
-      sort_order INTEGER NOT NULL DEFAULT 0,
-      created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-      updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-      FOREIGN KEY (category_id) REFERENCES categories(id) ON DELETE SET NULL
+      active INTEGER DEFAULT 1,
+      featured INTEGER DEFAULT 0,
+      sort_order INTEGER DEFAULT 0,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     );
 
     CREATE TABLE IF NOT EXISTS admin_user (
-      id INTEGER PRIMARY KEY CHECK (id = 1),
-      username TEXT NOT NULL,
-      password_hash TEXT NOT NULL,
-      created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-      updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
-    );
-
-    CREATE TABLE IF NOT EXISTS audit_logs (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      action TEXT NOT NULL,
-      entity TEXT DEFAULT '',
-      entity_id TEXT DEFAULT '',
-      details TEXT DEFAULT '',
-      created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
-    );
-
-    CREATE TABLE IF NOT EXISTS access_logs (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      ip TEXT DEFAULT '',
-      user_agent TEXT DEFAULT '',
-      route TEXT DEFAULT '',
-      created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+      id INTEGER PRIMARY KEY,
+      username TEXT,
+      password_hash TEXT
     );
 
     CREATE TABLE IF NOT EXISTS orders (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      id SERIAL PRIMARY KEY,
       customer_name TEXT,
       customer_phone TEXT,
       address TEXT,
@@ -118,38 +91,25 @@ async function getDb() {
       note TEXT,
       total REAL,
       status TEXT DEFAULT 'novo',
-      created_at TEXT DEFAULT CURRENT_TIMESTAMP
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     );
 
     CREATE TABLE IF NOT EXISTS order_items (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      id SERIAL PRIMARY KEY,
       order_id INTEGER,
       product_name TEXT,
       quantity INTEGER,
-      price REAL,
-      FOREIGN KEY(order_id) REFERENCES orders(id)
+      price REAL
     );
   `);
 
-  await addColumnIfNotExists(db, "orders", "address", "TEXT");
-  await addColumnIfNotExists(db, "orders", "payment", "TEXT");
-  await addColumnIfNotExists(db, "orders", "note", "TEXT");
-
   await db.run(`
-    INSERT OR IGNORE INTO settings (id)
+    INSERT INTO settings (id)
     VALUES (1)
+    ON CONFLICT (id) DO NOTHING
   `);
 
   return db;
-}
-
-async function addColumnIfNotExists(db, table, column, type) {
-  const columns = await db.all(`PRAGMA table_info(${table})`);
-  const exists = columns.some(c => c.name === column);
-
-  if (!exists) {
-    await db.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${type}`);
-  }
 }
 
 module.exports = { getDb };
