@@ -1,4 +1,5 @@
 const { Pool } = require('pg');
+const bcrypt = require('bcryptjs');
 
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
@@ -106,7 +107,52 @@ async function getDb() {
       details TEXT,
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     );
+
+
+    CREATE TABLE IF NOT EXISTS admin_user (
+      id INTEGER PRIMARY KEY,
+      username TEXT,
+      password_hash TEXT,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    );
+
+
+
   `);
+  
+    await db.run(`
+      INSERT INTO settings (
+        id, store_name, whatsapp_number, logo_url, primary_color, secondary_color,
+        delivery_enabled, pickup_enabled, is_open
+      )
+      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
+      ON CONFLICT (id) DO NOTHING
+    `, [
+      1,
+      'Delícias da Aninha',
+      '5583988061752',
+      '',
+      '#9b2242',
+      '#006b9c',
+      1,
+      1,
+      1
+    ]);
+
+    await db.run(`
+      INSERT INTO admin_user (id, username, password_hash)
+      VALUES ($1,$2,$3)
+      ON CONFLICT (id) DO NOTHING
+    `, [
+      1,
+      'admin',
+      bcrypt.hashSync('admin123', 10)
+    ]);
+
+
+
+
 
   return db;
 }
