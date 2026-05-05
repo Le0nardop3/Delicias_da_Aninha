@@ -1,8 +1,13 @@
 const { Pool } = require('pg');
 
-let pool = null;
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+  ssl: {
+    rejectUnauthorized: false
+  }
+});
 
-function createAdapter(pool) {
+function createAsyncAdapter() {
   return {
     exec: async (sql) => {
       await pool.query(sql);
@@ -10,7 +15,7 @@ function createAdapter(pool) {
 
     get: async (sql, params = []) => {
       const result = await pool.query(sql, params);
-      return result.rows[0] || null;
+      return result.rows[0];
     },
 
     all: async (sql, params = []) => {
@@ -21,65 +26,50 @@ function createAdapter(pool) {
     run: async (sql, params = []) => {
       const result = await pool.query(sql, params);
       return {
-        lastID: result.rows?.[0]?.id || null,
+        lastID: result.rows[0]?.id || null,
         changes: result.rowCount
       };
     }
   };
 }
 
+let db = null;
+
 async function getDb() {
-  if (pool) return createAdapter(pool);
+  if (db) return db;
 
-  pool = new Pool({
-    connectionString: process.env.DATABASE_URL
-  });
+  db = createAsyncAdapter();
 
-  const db = createAdapter(pool);
-
-  // ⚠️ CREATE TABLES (adaptado pro postgres)
   await db.exec(`
     CREATE TABLE IF NOT EXISTS settings (
-      id INTEGER PRIMARY KEY,
-      store_name TEXT DEFAULT 'Delícias da Aninha',
-      whatsapp_number TEXT DEFAULT '5583988061752',
-      logo_url TEXT DEFAULT '',
-      primary_color TEXT DEFAULT '#9b2242',
-      secondary_color TEXT DEFAULT '#006b9c',
-      delivery_enabled INTEGER DEFAULT 1,
-      pickup_enabled INTEGER DEFAULT 1,
-      is_open INTEGER DEFAULT 1,
-      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      id SERIAL PRIMARY KEY,
+      store_name TEXT,
+      whatsapp_number TEXT,
+      logo_url TEXT,
+      primary_color TEXT,
+      secondary_color TEXT,
+      delivery_enabled INTEGER,
+      pickup_enabled INTEGER,
+      is_open INTEGER
     );
 
     CREATE TABLE IF NOT EXISTS categories (
       id SERIAL PRIMARY KEY,
-      name TEXT NOT NULL,
-      active INTEGER DEFAULT 1,
-      sort_order INTEGER DEFAULT 0,
-      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      name TEXT,
+      active INTEGER,
+      sort_order INTEGER
     );
 
     CREATE TABLE IF NOT EXISTS products (
       id SERIAL PRIMARY KEY,
       category_id INTEGER,
-      name TEXT NOT NULL,
-      description TEXT DEFAULT '',
-      price REAL DEFAULT 0,
-      image_url TEXT DEFAULT '',
-      active INTEGER DEFAULT 1,
-      featured INTEGER DEFAULT 0,
-      sort_order INTEGER DEFAULT 0,
-      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-    );
-
-    CREATE TABLE IF NOT EXISTS admin_user (
-      id INTEGER PRIMARY KEY,
-      username TEXT,
-      password_hash TEXT
+      name TEXT,
+      description TEXT,
+      price REAL,
+      image_url TEXT,
+      active INTEGER,
+      featured INTEGER,
+      sort_order INTEGER
     );
 
     CREATE TABLE IF NOT EXISTS orders (
@@ -101,12 +91,21 @@ async function getDb() {
       quantity INTEGER,
       price REAL
     );
-  `);
 
-  await db.run(`
-    INSERT INTO settings (id)
-    VALUES (1)
-    ON CONFLICT (id) DO NOTHING
+    CREATE TABLE IF NOT EXISTS access_logs (
+      id SERIAL PRIMARY KEY,
+      ip TEXT,
+      user_agent TEXT,
+      route TEXT,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    );
+
+    CREATE TABLE IF NOT EXISTS audit_logs (
+      id SERIAL PRIMARY KEY,
+      action TEXT,
+      details TEXT,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    );
   `);
 
   return db;
