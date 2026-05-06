@@ -6,6 +6,15 @@ const session = require('express-session');
 const bcrypt = require('bcryptjs');
 const { getDb } = require('./src/db');
 
+const cloudinary = require('cloudinary').v2;
+const streamifier = require('streamifier');
+
+cloudinary.config({
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+  api_key: process.env.CLOUDINARY_API_KEY,
+  api_secret: process.env.CLOUDINARY_API_SECRET
+});
+
 const app = express();
 const PORT = process.env.PORT || 3000;
 const WHATSAPP_NUMBER = process.env.WHATSAPP_NUMBER || '5583988061752';
@@ -34,22 +43,33 @@ app.use(session({
 
 // ================= UPLOAD =================
 
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => cb(null, uploadsDir),
-  filename: (req, file, cb) => {
-    const ext = path.extname(file.originalname).toLowerCase();
-    cb(null, `${Date.now()}-${Math.round(Math.random() * 1e9)}${ext}`);
-  }
-});
+// ================= UPLOAD CLOUDINARY =================
 
 const upload = multer({
-  storage,
+  storage: multer.memoryStorage(),
   fileFilter: (req, file, cb) => {
     const ok = ['image/jpeg', 'image/png', 'image/webp'].includes(file.mimetype);
     cb(ok ? null : new Error('Formato inválido'), ok);
   },
   limits: { fileSize: 3 * 1024 * 1024 }
 });
+
+function uploadToCloudinary(buffer) {
+  return new Promise((resolve, reject) => {
+    const stream = cloudinary.uploader.upload_stream(
+      {
+        folder: 'delicias-da-aninha/produtos',
+        resource_type: 'image'
+      },
+      (error, result) => {
+        if (error) return reject(error);
+        resolve(result.secure_url);
+      }
+    );
+
+    streamifier.createReadStream(buffer).pipe(stream);
+  });
+}
 
 // ================= AUTH =================
 
@@ -287,7 +307,11 @@ app.post('/api/admin/products', requireAuth, upload.single('image'), async (req,
   const category_id = Number(req.body.category_id || 0) || null;
   const active = req.body.active === '0' ? 0 : 1;
   const featured = req.body.featured === '1' ? 1 : 0;
-  const image = req.file ? `/uploads/${req.file.filename}` : '';
+  let image = '';
+
+  if (req.file) {
+    image = await uploadToCloudinary(req.file.buffer);
+  }
 
   if (!name) return res.status(400).json({ error: 'Nome obrigatório' });
   if (!price || price <= 0) return res.status(400).json({ error: 'Preço inválido' });
@@ -323,7 +347,11 @@ app.put('/api/admin/products/:id', requireAuth, upload.single('image'), async (r
   const category_id = Number(req.body.category_id || 0) || null;
   const active = req.body.active === '1' ? 1 : 0;
   const featured = req.body.featured === '1' ? 1 : 0;
-  const image = req.file ? `/uploads/${req.file.filename}` : current.image_url;
+  let image = current.image_url;
+
+  if (req.file) {
+    image = await uploadToCloudinary(req.file.buffer);
+  }
 
   if (!name) return res.status(400).json({ error: 'Nome obrigatório' });
   if (!price || price <= 0) return res.status(400).json({ error: 'Preço inválido' });
