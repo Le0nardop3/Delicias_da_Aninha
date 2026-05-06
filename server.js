@@ -252,7 +252,7 @@ app.put('/api/admin/account', requireAuth, async (req, res) => {
 
   await db.run(`
     UPDATE admin_user
-    SET username = $1, password_hash = $2, updated_at = CURRENT_TIMESTAMP
+    SET username = $1, password_hash = $2
     WHERE id = 1
   `, [newUsername, bcrypt.hashSync(newPassword, 10)]);
   await logAudit(req, 'alterou usuário/senha do admin', { novo_usuario: newUsername });
