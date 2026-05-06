@@ -229,8 +229,8 @@ app.put('/api/admin/account', requireAuth, async (req, res) => {
   const confirmPassword = String(req.body.confirmPassword || '');
 
   const user = await db.get(`
-    SELECT * FROM admin_user WHERE id = $1
-  `, [req.session.userId]);
+    SELECT * FROM admin_user WHERE id = 1
+  `);
 
   if (!user) return res.status(404).json({ error: 'Usuário não encontrado.' });
 
@@ -253,9 +253,8 @@ app.put('/api/admin/account', requireAuth, async (req, res) => {
   await db.run(`
     UPDATE admin_user
     SET username = $1, password_hash = $2, updated_at = CURRENT_TIMESTAMP
-    WHERE id = $3
-  `, [newUsername, bcrypt.hashSync(newPassword, 10), user.id]);
-
+    WHERE id = 1
+  `, [newUsername, bcrypt.hashSync(newPassword, 10)]);
   await logAudit(req, 'alterou usuário/senha do admin', { novo_usuario: newUsername });
 
   req.session.destroy(() => res.json({ ok: true }));
