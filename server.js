@@ -424,6 +424,47 @@ app.post('/api/admin/categories', requireAuth, async (req, res) => {
   res.json({ id: result.id, name, active: 1, sort_order: 99 });
 });
 
+
+app.delete('/api/admin/categories/:id', requireAuth, async (req, res) => {
+  const db = await getDb();
+
+  const id = Number(req.params.id);
+  if (!id) return res.status(400).json({ error: 'Categoria inválida.' });
+
+  const category = await db.get(`
+    SELECT id, name FROM categories WHERE id = $1
+  `, [id]);
+
+  if (!category) {
+    return res.status(404).json({ error: 'Categoria não encontrada.' });
+  }
+
+  const productsUsing = await db.get(`
+    SELECT COUNT(*)::int AS total
+    FROM products
+    WHERE category_id = $1
+  `, [id]);
+
+  await db.run(`
+    UPDATE products
+    SET category_id = NULL
+    WHERE category_id = $1
+  `, [id]);
+
+  await db.run(`
+    DELETE FROM categories
+    WHERE id = $1
+  `, [id]);
+
+  await logAudit(req, 'excluiu categoria', {
+    id,
+    categoria: category.name,
+    produtos_afetados: Number(productsUsing?.total || 0)
+  });
+
+  res.json({ ok: true, productsAffected: Number(productsUsing?.total || 0) });
+});
+
 // ================= PEDIDOS =================
 
 app.post('/api/orders', async (req, res) => {

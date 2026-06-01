@@ -2,6 +2,15 @@ let categories = [];
 let products = [];
 let filtered = [];
 
+function escapeHtml(value) {
+  return String(value ?? '')
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&#039;');
+}
+
 const money = value => Number(value || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 
 async function checkAuth() {
@@ -17,7 +26,31 @@ async function checkAuth() {
 async function loadCategories() {
   const res = await fetch('/api/categories');
   categories = await res.json();
-  document.getElementById('category').innerHTML = categories.map(c => `<option value="${c.id}">${c.name}</option>`).join('');
+
+  const select = document.getElementById('category');
+
+  select.innerHTML = categories.length
+    ? categories.map(c => `<option value="${c.id}">${escapeHtml(c.name)}</option>`).join('')
+    : '<option value="">Sem categoria cadastrada</option>';
+
+  renderCategoriesList();
+}
+
+function renderCategoriesList() {
+  const box = document.getElementById('categoriesList');
+  if (!box) return;
+
+  if (!categories.length) {
+    box.innerHTML = '<small>Nenhuma categoria cadastrada.</small>';
+    return;
+  }
+
+  box.innerHTML = categories.map(c => `
+    <div class="category-admin-item">
+      <span>${escapeHtml(c.name)}</span>
+      <button type="button" class="delete" onclick="deleteCategory(${c.id})">Apagar</button>
+    </div>
+  `).join('');
 }
 
 async function loadProducts() {
@@ -133,6 +166,35 @@ async function addCategory() {
   }
   input.value = '';
   await loadCategories();
+}
+
+async function deleteCategory(id) {
+  const category = categories.find(c => Number(c.id) === Number(id));
+  const categoryName = category ? category.name : 'esta categoria';
+
+  if (!confirm(`Deseja apagar a categoria "${categoryName}"?
+
+Os produtos dessa categoria NÃO serão apagados, apenas ficarão sem categoria.`)) {
+    return;
+  }
+
+  const res = await fetch(`/api/admin/categories/${id}`, {
+    method: 'DELETE'
+  });
+
+  const data = await res.json().catch(() => ({}));
+
+  if (!res.ok) {
+    alert(data.error || 'Não foi possível apagar a categoria.');
+    return;
+  }
+
+  alert(data.productsAffected > 0
+    ? `Categoria apagada. ${data.productsAffected} produto(s) ficaram sem categoria.`
+    : 'Categoria apagada com sucesso.');
+
+  await loadCategories();
+  await loadProducts();
 }
 
 async function logout() {
@@ -387,3 +449,4 @@ async function saveSettings(event) {
 
 
 document.getElementById('settingsForm')?.addEventListener('submit', saveSettings);
+

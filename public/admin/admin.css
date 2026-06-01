@@ -137,3 +137,33 @@
     max-width: 100%;
   }
 }
+
+.category-admin-list {
+  display: grid;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.category-admin-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  background: #faf4ef;
+  border: 1px solid #eee1d8;
+  border-radius: 12px;
+  padding: 10px 12px;
+}
+
+.category-admin-item span {
+  font-weight: 800;
+  color: #4a2e20;
+}
+
+.category-admin-item button {
+  border: 0;
+  border-radius: 10px;
+  padding: 8px 10px;
+  font-weight: 900;
+  cursor: pointer;
+}
