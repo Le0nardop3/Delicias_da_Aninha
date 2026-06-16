@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Pedidos Detalhados | PitStop Manaíra</title>
+  <link rel="stylesheet" href="admin.css">
+  <style>
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      margin: 0;
+      padding: 0;
+      background: #f7f8fa;
+    }
+
+    .orders-container {
+      max-width: 1000px;
+      margin: 30px auto;
+      padding: 20px;
+      background: #f7f8fa;
+      border-radius: 10px;
+    }
+
+    /* Toolbar de filtros */
+    .orders-toolbar {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      align-items: center;
+      gap: 15px;
+      margin-bottom: 20px;
+      padding: 10px;
+      background: #ffffff;
+      border-radius: 8px;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+    }
+
+    .orders-toolbar input,
+    .orders-toolbar select {
+      padding: 8px 12px;
+      border-radius: 6px;
+      border: 1px solid #ccc;
+      font-size: 0.95em;
+    }
+
+    .orders-toolbar button {
+      padding: 8px 16px;
+      border-radius: 6px;
+      border: none;
+      background-color: #007bff;
+      color: #fff;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .orders-toolbar button:hover {
+      background-color: #0056b3;
+    }
+
+    .orders-counter {
+      font-weight: 600;
+      color: #333;
+      font-size: 0.95em;
+    }
+
+    .orders-grid { display: flex; flex-direction: column; gap: 15px; }
+
+    /* Cards de pedidos */
+    .order-card {
+      background: #ffffff;
+      border-radius: 12px;
+      padding: 20px;
+      box-shadow: 0 3px 10px rgba(0,0,0,0.08);
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+
+    .order-card:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 15px rgba(0,0,0,0.12);
+    }
+
+    .order-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 15px;
+    }
+
+    .order-status {
+      padding: 5px 12px;
+      border-radius: 18px;
+      font-weight: 600;
+      color: #fff;
+      font-size: 0.85em;
+      text-transform: uppercase;
+    }
+
+    .status-novo { background: #007bff; }
+    .status-producao { background: #ffc107; color:#333; }
+    .status-finalizado { background: #28a745; }
+    .status-cancelado { background: #dc3545; }
+    .status-expirado { background: #6c757d; }
+
+    .order-client {
+      font-size: 1em;
+      line-height: 1.5;
+      margin-bottom: 15px;
+      color: #444;
+    }
+
+    .order-items {
+      list-style: none;
+      padding: 0;
+      margin-bottom: 15px;
+      border-top: 1px solid #eee;
+      border-bottom: 1px solid #eee;
+      padding: 10px 0;
+    }
+
+    .order-items li {
+      display: flex;
+      justify-content: space-between;
+      padding: 5px 0;
+      font-size: 0.95em;
+    }
+
+    .order-footer {
+      display: flex;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .order-footer select,
+    .order-buttons button {
+      padding: 6px 12px;
+      border-radius: 6px;
+      font-size: 0.9em;
+      border: none;
+      cursor: pointer;
+    }
+
+    .order-buttons button {
+      background: #6c4b3d;
+      color: #fff;
+    }
+
+    .order-buttons button:hover {
+      background: #5a3f34;
+    }
+
+    .order-empty {
+      text-align: center;
+      padding: 40px;
+      font-size: 1.1em;
+      color: #888;
+    }
+
+    h3.status-group {
+      margin-top: 30px;
+      font-size: 1.3em;
+      color: #555;
+      border-bottom: 2px solid #ddd;
+      padding-bottom: 5px;
+    }
+
+    /* Botões de navegação */
+    .navigation-buttons {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 15px;
+    }
+
+    .navigation-buttons button {
+      padding: 6px 14px;
+      border-radius: 6px;
+      border: none;
+      background-color: #007bff;
+      color: #fff;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .navigation-buttons button:hover {
+      background-color: #0056b3;
+    }
+
+  </style>
+</head>
+<body>
+  <div class="orders-container">
+    <div class="navigation-buttons">
+      <button onclick="window.location.href='painel.html'">Voltar para o Painel</button>
+      <button onclick="window.location.href='pedidos.html'">Ir para Pedidos</button>
+    </div>
+
+    <section class="orders-toolbar">
+      <input type="search" id="searchOrder" placeholder="Buscar pedido, cliente ou telefone...">
+      <input type="date" id="filterStartDate">
+      <input type="date" id="filterEndDate">
+      <select id="filterStatus">
+        <option value="">Todos status</option>
+        <option value="novo">Novo</option>
+        <option value="producao">Em produção</option>
+        <option value="finalizado">Finalizado</option>
+        <option value="cancelado">Cancelado</option>
+        <option value="expirado">Expirado</option>
+      </select>
+      <select id="filterPayment">
+        <option value="">Todos pagamentos</option>
+        <option value="Pix">Pix</option>
+        <option value="Dinheiro">Dinheiro</option>
+      </select>
+      <div class="orders-counter">
+        <strong id="ordersCount">0</strong> pedidos encontrados
+      </div>
+      <button id="refreshOrdersBtn">Atualizar</button>
+    </section>
+
+    <section id="ordersList" class="orders-grid"></section>
+  </div>
+
+  <script src="pedidos.js"></script>
+</body>
+</html>

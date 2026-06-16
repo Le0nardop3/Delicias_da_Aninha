@@ -4,7 +4,7 @@ let cart = [];
 let currentCategory = 'Todos';
 let whatsappNumber = '5583999999999';
 let isStoreOpen = true;
-
+let currentCustomer = null;
 const money = value => Number(value || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 
 async function loadData() {
@@ -21,7 +21,9 @@ async function loadData() {
   renderFilters();
   renderProducts();
   renderCart();
+  await checkCustomerSession();
 }
+
 
 function renderFilters() {
   const filters = document.getElementById('filters');
@@ -118,6 +120,39 @@ function renderCart() {
 
 
 
+async function checkCustomerSession() {
+  const loginButton = document.querySelector('.btn-enter');
+  const nameInput = document.getElementById('customerName');
+
+  try {
+    const response = await fetch('/api/customer/me');
+
+    if (!response.ok) {
+      currentCustomer = null;
+      if (loginButton) {
+        loginButton.textContent = 'Entrar';
+        loginButton.href = '/login.html';
+      }
+      return;
+    }
+
+    const data = await response.json();
+    currentCustomer = data.customer;
+
+    if (loginButton) {
+      loginButton.textContent = 'Minha conta';
+      loginButton.href = '/minha-conta.html';
+    }
+
+    if (nameInput && currentCustomer?.name) {
+      nameInput.value = currentCustomer.name;
+      nameInput.readOnly = true;
+    }
+  } catch (error) {
+    currentCustomer = null;
+  }
+}
+
 async function sendOrder(event) {
   event.preventDefault();
 
@@ -142,12 +177,13 @@ async function sendOrder(event) {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        customer_name: name,
-        customer_phone: '',
+        customer_name: currentCustomer ? currentCustomer.name : name,
+        customer_phone: currentCustomer ? currentCustomer.phone : '',
         address: address,
         payment: payment,
         note: note,
         items: cart.map(item => ({
+          id: item.id,
           name: item.name,
           quantity: item.quantity,
           price: item.price

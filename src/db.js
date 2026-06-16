@@ -1,10 +1,11 @@
 const { Pool } = require('pg');
 const bcrypt = require('bcryptjs');
+require('dotenv').config(); // garante leitura do .env
 
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
   ssl: {
-    rejectUnauthorized: false
+    rejectUnauthorized: false // necessário para Render
   }
 });
 
@@ -41,6 +42,7 @@ async function getDb() {
 
   db = createAsyncAdapter();
 
+  // Criação das tabelas (se não existirem)
   await db.exec(`
     CREATE TABLE IF NOT EXISTS settings (
       id SERIAL PRIMARY KEY,
@@ -73,8 +75,22 @@ async function getDb() {
       sort_order INTEGER
     );
 
+    CREATE TABLE IF NOT EXISTS customers (
+      id SERIAL PRIMARY KEY,
+      name TEXT NOT NULL,
+      phone TEXT UNIQUE NOT NULL,
+      email TEXT UNIQUE,
+      cpf TEXT UNIQUE,
+      birth_date DATE,
+      password_hash TEXT NOT NULL,
+      is_active BOOLEAN DEFAULT TRUE,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    );
+
     CREATE TABLE IF NOT EXISTS orders (
       id SERIAL PRIMARY KEY,
+      customer_id INTEGER REFERENCES customers(id) ON DELETE SET NULL,
       customer_name TEXT,
       customer_phone TEXT,
       address TEXT,
@@ -108,7 +124,6 @@ async function getDb() {
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     );
 
-
     CREATE TABLE IF NOT EXISTS admin_user (
       id INTEGER PRIMARY KEY,
       username TEXT,
@@ -116,43 +131,64 @@ async function getDb() {
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
       updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     );
-
-
-
   `);
-  
-    await db.run(`
-      INSERT INTO settings (
-        id, store_name, whatsapp_number, logo_url, primary_color, secondary_color,
-        delivery_enabled, pickup_enabled, is_open
-      )
-      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
-      ON CONFLICT (id) DO NOTHING
-    `, [
-      1,
-      'Delícias da Aninha',
-      '5583988061752',
-      '',
-      '#9b2242',
-      '#006b9c',
-      1,
-      1,
-      1
-    ]);
 
-    await db.run(`
-      INSERT INTO admin_user (id, username, password_hash)
-      VALUES ($1,$2,$3)
-      ON CONFLICT (id) DO NOTHING
-    `, [
-      1,
-      'admin',
-      bcrypt.hashSync('admin123', 10)
-    ]);
+  // Inserções iniciais
+  await db.run(`
+    INSERT INTO settings (
+      id, store_name, whatsapp_number, logo_url, primary_color, secondary_color,
+      delivery_enabled, pickup_enabled, is_open
+    )
+    VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
+    ON CONFLICT (id) DO NOTHING
+  `, [
+    1,
+    'Delícias da Aninha',
+    '5583988061752',
+    '',
+    '#9b2242',
+    '#006b9c',
+    1,
+    1,
+    1
+  ]);
+
+  await db.run(`
+    INSERT INTO admin_user (id, username, password_hash)
+    VALUES ($1,$2,$3)
+    ON CONFLICT (id) DO NOTHING
+  `, [
+    1,
+    'admin',
+    bcrypt.hashSync('admin123', 10)
+  ]);
 
 
+  // Migrações para login/cadastro de clientes
+  await db.exec(`
+    CREATE TABLE IF NOT EXISTS customers (
+      id SERIAL PRIMARY KEY,
+      name TEXT NOT NULL,
+      phone TEXT UNIQUE NOT NULL,
+      email TEXT UNIQUE,
+      cpf TEXT UNIQUE,
+      birth_date DATE,
+      password_hash TEXT NOT NULL,
+      is_active BOOLEAN DEFAULT TRUE,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    );
 
+    ALTER TABLE customers ADD COLUMN IF NOT EXISTS email TEXT UNIQUE;
+    ALTER TABLE customers ADD COLUMN IF NOT EXISTS cpf TEXT UNIQUE;
+    ALTER TABLE customers ADD COLUMN IF NOT EXISTS birth_date DATE;
+    ALTER TABLE customers ADD COLUMN IF NOT EXISTS password_hash TEXT;
+    ALTER TABLE customers ADD COLUMN IF NOT EXISTS is_active BOOLEAN DEFAULT TRUE;
+    ALTER TABLE customers ADD COLUMN IF NOT EXISTS created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP;
+    ALTER TABLE customers ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP;
 
+    ALTER TABLE orders ADD COLUMN IF NOT EXISTS customer_id INTEGER REFERENCES customers(id) ON DELETE SET NULL;
+  `);
 
   return db;
 }

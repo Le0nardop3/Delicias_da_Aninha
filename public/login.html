@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Entrar | Delícias da Aninha</title>
+  <link rel="icon" href="/assets/logo.png" type="image/png">
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body class="login-customer-body">
+
+  <main class="customer-auth-page">
+    <section class="customer-auth-card">
+      <img src="/assets/logo.png" alt="Delícias da Aninha" class="customer-auth-logo">
+
+      <span class="customer-auth-badge">Área do cliente</span>
+
+      <h1>Entrar na minha conta</h1>
+      <p>Acesse seus dados e acompanhe seu histórico de pedidos.</p>
+
+      <form id="loginCustomerForm" class="customer-auth-form">
+        <label for="loginUser">Telefone ou e-mail</label>
+        <input
+          type="text"
+          id="loginUser"
+          placeholder="Digite seu telefone ou e-mail"
+          required
+        >
+
+        <label for="loginPassword">Senha</label>
+        <input
+          type="password"
+          id="loginPassword"
+          placeholder="Digite sua senha"
+          required
+        >
+
+        <button type="submit">Entrar</button>
+
+        <span id="loginMsg" class="customer-auth-msg"></span>
+      </form>
+
+      <div class="customer-auth-footer">
+        <span>Ainda não tem conta?</span>
+        <a href="/cadastro.html">Criar cadastro</a>
+      </div>
+
+      <a href="/" class="customer-auth-back">← Voltar para loja</a>
+    </section>
+  </main>
+
+  <script>
+    const loginCustomerForm = document.getElementById('loginCustomerForm');
+    const loginMsg = document.getElementById('loginMsg');
+
+    loginCustomerForm.addEventListener('submit', async (event) => {
+      event.preventDefault();
+
+      loginMsg.textContent = '';
+      loginMsg.className = 'customer-auth-msg';
+
+      const login = document.getElementById('loginUser').value;
+      const password = document.getElementById('loginPassword').value;
+
+      try {
+        const response = await fetch('/api/customer/login', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            login,
+            password
+          })
+        });
+
+        const data = await response.json();
+
+        if (!response.ok) {
+          loginMsg.textContent = data.error || 'Não foi possível entrar.';
+          loginMsg.classList.add('error');
+          return;
+        }
+
+        loginMsg.textContent = 'Login realizado com sucesso.';
+        loginMsg.classList.add('success');
+
+        setTimeout(() => {
+          window.location.href = '/minha-conta.html';
+        }, 500);
+
+      } catch (error) {
+        loginMsg.textContent = 'Erro de conexão. Tente novamente.';
+        loginMsg.classList.add('error');
+      }
+    });
+  </script>
+
+</body>
+</html>

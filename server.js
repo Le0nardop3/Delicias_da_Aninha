@@ -78,6 +78,30 @@ function requireAuth(req, res, next) {
   return res.status(401).json({ error: 'Não autorizado' });
 }
 
+
+function requireCustomerAuth(req, res, next) {
+  if (req.session && req.session.customerId) return next();
+  return res.status(401).json({ error: 'Cliente não autenticado' });
+}
+
+function isValidCPF(cpf) {
+  cpf = String(cpf || '').replace(/\D/g, '');
+  if (cpf.length !== 11) return false;
+  if (/^(\d){10}$/.test(cpf)) return false;
+
+  let sum = 0;
+  for (let i = 1; i <= 9; i++) sum += parseInt(cpf.substring(i - 1, i), 10) * (11 - i);
+  let rest = (sum * 10) % 11;
+  if (rest === 10 || rest === 11) rest = 0;
+  if (rest !== parseInt(cpf.substring(9, 10), 10)) return false;
+
+  sum = 0;
+  for (let i = 1; i <= 10; i++) sum += parseInt(cpf.substring(i - 1, i), 10) * (12 - i);
+  rest = (sum * 10) % 11;
+  if (rest === 10 || rest === 11) rest = 0;
+  return rest === parseInt(cpf.substring(10, 11), 10);
+}
+
 function clientIp(req) {
   return String(req.headers['x-forwarded-for'] || req.socket.remoteAddress || '')
     .split(',')[0]
@@ -166,6 +190,139 @@ app.get('/api/config', async (req, res) => {
     pickupEnabled: Number(settings?.pickup_enabled ?? 1),
     isOpen: Number(settings?.is_open ?? 1)
   });
+});
+
+
+// ================= CLIENTES AUTH =================
+
+app.post('/api/customer/register', async (req, res) => {
+  try {
+    const db = await getDb();
+
+    const name = String(req.body.name || '').trim();
+    const phone = String(req.body.phone || '').replace(/\D/g, '');
+    const email = String(req.body.email || '').trim().toLowerCase();
+    const cpf = String(req.body.cpf || '').replace(/\D/g, '');
+    const birth_date = String(req.body.birth_date || '').trim();
+    const password = String(req.body.password || '');
+
+    if (!name || name.length < 3) return res.status(400).json({ error: 'Informe seu nome completo.' });
+    if (!phone || phone.length < 10) return res.status(400).json({ error: 'Informe um telefone válido.' });
+    if (!isValidCPF(cpf)) return res.status(400).json({ error: 'Informe um CPF válido.' });
+    if (!birth_date) return res.status(400).json({ error: 'Informe sua data de nascimento.' });
+    if (!password || password.length < 6) return res.status(400).json({ error: 'A senha deve ter pelo menos 6 caracteres.' });
+
+    const exists = await db.get(`
+      SELECT id
+      FROM customers
+      WHERE phone = $1
+         OR (email IS NOT NULL AND LOWER(email) = LOWER($2))
+         OR cpf = $3
+      LIMIT 1
+    `, [phone, email || null, cpf]);
+
+    if (exists) return res.status(400).json({ error: 'Já existe uma conta com este telefone, e-mail ou CPF.' });
+
+    const passwordHash = bcrypt.hashSync(password, 10);
+
+    const customer = await db.get(`
+      INSERT INTO customers (name, phone, password, email, cpf, birth_date, password_hash, is_active)
+      VALUES ($1, $2, $3, $4, $5, $6, $3, TRUE)
+      RETURNING id, name, phone, email
+    `, [name, phone, passwordHash, email || null, cpf, birth_date]);
+
+    req.session.customerId = customer.id;
+    res.json({ ok: true, customer });
+  } catch (error) {
+    console.error('Erro ao cadastrar cliente:', error);
+    res.status(500).json({ error: 'Erro ao cadastrar cliente.' });
+  }
+});
+
+app.post('/api/customer/login', async (req, res) => {
+  try {
+    const db = await getDb();
+    const login = String(req.body.login || '').trim().toLowerCase();
+    const password = String(req.body.password || '');
+
+    if (!login || !password) return res.status(400).json({ error: 'Informe login e senha.' });
+
+    const cleanPhone = login.replace(/\D/g, '');
+    const customer = await db.get(`
+      SELECT *
+      FROM customers
+      WHERE LOWER(email) = LOWER($1)
+         OR phone = $2
+      LIMIT 1
+    `, [login, cleanPhone]);
+
+    if (!customer || !bcrypt.compareSync(password, customer.password_hash || '')) {
+      return res.status(401).json({ error: 'Login ou senha inválidos.' });
+    }
+
+    if (!customer.is_active) return res.status(403).json({ error: 'Conta desativada.' });
+
+    req.session.customerId = customer.id;
+    res.json({
+      ok: true,
+      customer: { id: customer.id, name: customer.name, phone: customer.phone, email: customer.email }
+    });
+  } catch (error) {
+    console.error('Erro login cliente:', error);
+    res.status(500).json({ error: 'Erro ao fazer login.' });
+  }
+});
+
+app.post('/api/customer/logout', requireCustomerAuth, async (req, res) => {
+  req.session.customerId = null;
+  res.json({ ok: true });
+});
+
+app.get('/api/customer/me', requireCustomerAuth, async (req, res) => {
+  try {
+    const db = await getDb();
+    const customer = await db.get(`
+      SELECT id, name, phone, email, cpf, birth_date, is_active, created_at
+      FROM customers
+      WHERE id = $1
+    `, [req.session.customerId]);
+
+    if (!customer) {
+      req.session.customerId = null;
+      return res.status(401).json({ error: 'Cliente não encontrado.' });
+    }
+
+    res.json({ ok: true, customer });
+  } catch (error) {
+    console.error('Erro customer/me:', error);
+    res.status(500).json({ error: 'Erro ao carregar cliente.' });
+  }
+});
+
+app.get('/api/customer/orders', requireCustomerAuth, async (req, res) => {
+  try {
+    const db = await getDb();
+    const orders = await db.all(`
+      SELECT id, customer_name, customer_phone, address, payment, note, total, status, created_at
+      FROM orders
+      WHERE customer_id = $1
+      ORDER BY id DESC
+    `, [req.session.customerId]);
+
+    for (const order of orders) {
+      order.items = await db.all(`
+        SELECT id, product_name, quantity, price
+        FROM order_items
+        WHERE order_id = $1
+        ORDER BY id ASC
+      `, [order.id]);
+    }
+
+    res.json({ ok: true, orders });
+  } catch (error) {
+    console.error('Erro ao carregar pedidos do cliente:', error);
+    res.status(500).json({ error: 'Erro ao carregar seus pedidos.' });
+  }
 });
 
 // ================= CATEGORIAS =================
@@ -468,48 +625,77 @@ app.delete('/api/admin/categories/:id', requireAuth, async (req, res) => {
 // ================= PEDIDOS =================
 
 app.post('/api/orders', async (req, res) => {
-  const db = await getDb();
+  try {
+    const db = await getDb();
+    const { items, customer_name, customer_phone, address, payment, note } = req.body;
 
-  const { items, customer_name, customer_phone, address, payment, note } = req.body;
+    if (!items || items.length === 0) return res.status(400).json({ error: 'Pedido vazio' });
 
-  if (!items || items.length === 0) {
-    return res.status(400).json({ error: 'Pedido vazio' });
+    let total = 0;
+    const validatedItems = [];
+
+    for (const item of items) {
+      const quantity = Number(item.quantity || 0);
+      if (quantity <= 0 || quantity > 50) return res.status(400).json({ error: 'Item inválido no pedido.' });
+
+      // No projeto 1 o front ainda envia nome/preço. Mantive compatível,
+      // mas também aceito ID caso venha do cardápio.
+      let name = String(item.name || '').trim();
+      let price = Number(item.price || 0);
+
+      if (item.id) {
+        const product = await db.get(`SELECT id, name, price, active FROM products WHERE id = $1`, [Number(item.id)]);
+        if (!product || !product.active) return res.status(400).json({ error: 'Produto inválido ou indisponível.' });
+        name = product.name;
+        price = Number(product.price || 0);
+      }
+
+      if (!name || price <= 0) return res.status(400).json({ error: 'Item inválido no pedido.' });
+
+      total += price * quantity;
+      validatedItems.push({ name, price, quantity });
+    }
+
+    let customerId = req.session?.customerId || null;
+    let finalCustomerName = customer_name || '';
+    let finalCustomerPhone = customer_phone || '';
+
+    if (customerId) {
+      const customer = await db.get(`
+        SELECT id, name, phone
+        FROM customers
+        WHERE id = $1
+          AND is_active = TRUE
+      `, [customerId]);
+
+      if (customer) {
+        finalCustomerName = customer.name || finalCustomerName;
+        finalCustomerPhone = customer.phone || finalCustomerPhone;
+      } else {
+        customerId = null;
+      }
+    }
+
+    const result = await db.get(`
+      INSERT INTO orders (customer_id, customer_name, customer_phone, address, payment, note, total)
+      VALUES ($1, $2, $3, $4, $5, $6, $7)
+      RETURNING id
+    `, [customerId, finalCustomerName, finalCustomerPhone, address || '', payment || '', note || '', total]);
+
+    const orderId = result.id;
+
+    for (const item of validatedItems) {
+      await db.run(`
+        INSERT INTO order_items (order_id, product_name, quantity, price)
+        VALUES ($1, $2, $3, $4)
+      `, [orderId, item.name, item.quantity, item.price]);
+    }
+
+    res.json({ ok: true, orderId, customerId });
+  } catch (error) {
+    console.error('Erro ao salvar pedido:', error);
+    res.status(500).json({ error: 'Erro ao salvar pedido.' });
   }
-
-  let total = 0;
-
-  for (const item of items) {
-    total += Number(item.price || 0) * Number(item.quantity || 0);
-  }
-
-  const result = await db.get(`
-    INSERT INTO orders (customer_name, customer_phone, address, payment, note, total)
-    VALUES ($1, $2, $3, $4, $5, $6)
-    RETURNING id
-  `, [
-    customer_name || '',
-    customer_phone || '',
-    address || '',
-    payment || '',
-    note || '',
-    total
-  ]);
-
-  const orderId = result.id;
-
-  for (const item of items) {
-    await db.run(`
-      INSERT INTO order_items (order_id, product_name, quantity, price)
-      VALUES ($1, $2, $3, $4)
-    `, [
-      orderId,
-      item.name,
-      Number(item.quantity || 0),
-      Number(item.price || 0)
-    ]);
-  }
-
-  res.json({ ok: true, orderId });
 });
 
 // ================= PEDIDOS ADMIN =================

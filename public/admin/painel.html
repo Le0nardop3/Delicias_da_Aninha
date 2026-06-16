@@ -13,8 +13,9 @@
       <strong>Delícias da Aninha Admin</strong>
       <span>Controle de pedidos e cardápio</span>
     </div>
-    <nav>
-      <a href="/" target="_blank">Ver loja</a>
+    <nav style="display:flex; gap:10px; align-items:center;">
+      <a href="/" target="_blank" class="primary-btn">Ver loja</a>
+      <a href="pedidos.html" class="primary-btn">Ir para Pedidos</a>
       <button id="logoutBtn">Sair</button>
     </nav>
   </header>
@@ -128,18 +129,7 @@
         </table>
       </div>
 
-      <section class="panel orders-panel">
-        <div class="list-title">
-          <div>
-            <h1>Pedidos recebidos</h1>
-            <p>Acompanhe os pedidos enviados pelo site.</p>
-          </div>
 
-          <button id="refreshOrdersBtn" class="secondary">Atualizar pedidos</button>
-        </div>
-
-        <div id="ordersList" class="orders-list"></div>
-      </section>
 
       <div class="audit-area">
         <div class="metric-grid">

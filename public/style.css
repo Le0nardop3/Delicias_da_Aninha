@@ -835,3 +835,187 @@ footer {
     text-align: center;
   }
 }
+
+
+/* Menu login cliente */
+nav .menu a.login-client {
+  background-color: #ffcc00;   /* cor principal do botão */
+  color: #000;
+  font-weight: bold;
+  padding: 8px 16px;
+  border-radius: 6px;
+  text-decoration: none;
+  transition: 0.2s;
+}
+
+nav .menu a.login-client:hover {
+  background-color: #e6b800;   /* hover mais escuro */
+  color: #000;
+}
+
+.header-buttons {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.btn-enter {
+  background-color: #ffcc00;
+  color: #000;
+  font-weight: bold;
+  padding: 8px 20px;
+  border-radius: 6px;
+  text-decoration: none;
+  transition: 0.2s;
+}
+
+.btn-enter:hover {
+  background-color: #e6b800;
+  color: #000;
+}
+
+.cart-button {
+  background-color: #3c1d4f;
+  color: #fff;
+  padding: 8px 20px;
+  border-radius: 6px;
+  border: none;
+  cursor: pointer;
+}
+
+.header-buttons {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+/* Botão Entrar */
+.header-buttons .btn-enter {
+  background-color: #ffcc00;   /* destaque amarelo */
+  color: #000;
+  font-weight: bold;
+  padding: 8px 20px;
+  border-radius: 6px;
+  text-decoration: none;
+  transition: 0.2s;
+}
+
+
+.header-buttons .btn-enter:hover {
+  background-color: #e6b800;
+  color: #000;
+}
+
+/* Botão Sacola */
+.header-buttons .cart-button {
+  background-color: #3c1d4f;
+  color: #fff;
+  padding: 8px 20px;
+  border-radius: 6px;
+  border: none;
+  cursor: pointer;
+}
+
+/* ================= ÁREA DO CLIENTE ================= */
+.login-customer-body {
+  min-height: 100vh;
+  background: linear-gradient(135deg, #9b2242, #f7eef3);
+}
+.customer-auth-page {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 28px;
+}
+.customer-auth-card {
+  width: 100%;
+  max-width: 430px;
+  background: #fff;
+  border-radius: 28px;
+  padding: 34px;
+  text-align: center;
+  box-shadow: 0 22px 60px rgba(70, 20, 40, .22);
+}
+.customer-auth-logo {
+  max-width: 135px;
+  max-height: 95px;
+  object-fit: contain;
+  margin-bottom: 14px;
+}
+.customer-auth-badge {
+  display: inline-block;
+  background: #f7eef3;
+  color: #9b2242;
+  border-radius: 999px;
+  padding: 7px 13px;
+  font-size: 12px;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+.customer-auth-card h1 {
+  color: #4a1027;
+  margin: 14px 0 8px;
+}
+.customer-auth-card p {
+  color: #6f6170;
+  margin-bottom: 22px;
+}
+.customer-auth-form {
+  display: grid;
+  gap: 10px;
+  text-align: left;
+}
+.customer-auth-form label {
+  font-size: 13px;
+  font-weight: 900;
+  color: #4a1027;
+}
+.customer-auth-form input {
+  width: 100%;
+  border: 1px solid #ead7df;
+  border-radius: 14px;
+  padding: 14px;
+  outline: none;
+  font-size: 15px;
+}
+.customer-auth-form input:focus {
+  border-color: #9b2242;
+  box-shadow: 0 0 0 3px rgba(155, 34, 66, .12);
+}
+.customer-auth-form button {
+  margin-top: 8px;
+  border: 0;
+  border-radius: 16px;
+  padding: 15px;
+  background: #9b2242;
+  color: #fff;
+  font-weight: 900;
+  cursor: pointer;
+}
+.customer-auth-msg {
+  min-height: 20px;
+  font-weight: 800;
+  font-size: 13px;
+  text-align: center;
+}
+.customer-auth-msg.error { color: #b91c1c; }
+.customer-auth-msg.success { color: #15803d; }
+.customer-auth-footer {
+  margin-top: 20px;
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  color: #6f6170;
+}
+.customer-auth-footer a,
+.customer-auth-back {
+  color: #9b2242;
+  font-weight: 900;
+  text-decoration: none;
+}
+.customer-auth-back {
+  display: inline-block;
+  margin-top: 18px;
+}

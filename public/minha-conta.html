@@ -1,0 +1,531 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Minha Conta | Delícias da Aninha</title>
+  <link rel="stylesheet" href="style.css" />
+
+  <style>
+    body {
+      background:
+        radial-gradient(circle at top left, rgba(215, 168, 91, .16), transparent 34%),
+        linear-gradient(135deg, #fffaf6 0%, #f8f2ec 45%, #f7eef3 100%);
+      color: var(--chocolate);
+    }
+
+    .account-page {
+      width: 92%;
+      max-width: 1100px;
+      margin: 40px auto;
+    }
+
+    .account-header {
+      background:
+        radial-gradient(circle at 90% 0%, rgba(215,168,91,.28), transparent 32%),
+        linear-gradient(135deg, var(--wine-dark), var(--wine) 55%, var(--blue-dark));
+      color: #fff;
+      border-radius: 28px;
+      padding: 30px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 18px;
+      border: 1px solid rgba(255,255,255,.12);
+      box-shadow: 0 24px 65px rgba(74, 36, 24, .20);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .account-header::after {
+      content: "";
+      position: absolute;
+      left: 28px;
+      right: 28px;
+      bottom: 0;
+      height: 5px;
+      border-radius: 999px 999px 0 0;
+      background: var(--gold);
+    }
+
+    .account-header h1 {
+      margin: 0;
+      font-size: 32px;
+      letter-spacing: -1px;
+    }
+
+    .account-header p {
+      margin-top: 6px;
+      color: #f8e6eb;
+      font-weight: 700;
+    }
+
+    .account-actions {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      position: relative;
+      z-index: 1;
+    }
+
+    .account-actions a,
+    .account-actions button {
+      border: 0;
+      border-radius: 14px;
+      padding: 13px 18px;
+      font-weight: 900;
+      text-decoration: none;
+      cursor: pointer;
+      box-shadow: 0 10px 22px rgba(43, 20, 14, .14);
+    }
+
+    .back-btn {
+      background: #fff;
+      color: var(--wine-dark);
+    }
+
+    .back-btn:hover {
+      background: var(--cream-2);
+    }
+
+    .logout-btn {
+      background: var(--chocolate);
+      color: #fff;
+    }
+
+    .logout-btn:hover {
+      background: var(--wine-dark);
+    }
+
+    .account-grid {
+      display: grid;
+      grid-template-columns: 340px 1fr;
+      gap: 22px;
+      margin-top: 24px;
+    }
+
+    .account-card {
+      background: rgba(255, 255, 255, .96);
+      border-radius: 26px;
+      padding: 24px;
+      box-shadow: 0 18px 45px rgba(74, 36, 24, .10);
+      border: 1px solid var(--border);
+    }
+
+    .account-card h2 {
+      color: var(--wine-dark);
+      margin-bottom: 16px;
+      letter-spacing: -.3px;
+    }
+
+    .info-row {
+      padding: 12px 0;
+      border-bottom: 1px solid #f0e2da;
+    }
+
+    .info-row span {
+      display: block;
+      font-size: 12px;
+      font-weight: 900;
+      color: var(--muted);
+      text-transform: uppercase;
+      margin-bottom: 4px;
+      letter-spacing: .3px;
+    }
+
+    .info-row strong {
+      color: var(--chocolate);
+      font-size: 15px;
+    }
+
+    .orders-list {
+      display: grid;
+      gap: 16px;
+    }
+
+    .order-card {
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 18px;
+      background: var(--cream-2);
+    }
+
+    .order-top {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      align-items: flex-start;
+      border-bottom: 1px solid #f0e2da;
+      padding-bottom: 12px;
+      margin-bottom: 12px;
+    }
+
+    .order-top strong {
+      color: var(--wine-dark);
+      font-size: 18px;
+    }
+
+    .order-top small {
+      display: block;
+      color: var(--muted);
+      margin-top: 4px;
+    }
+
+    .status {
+      border-radius: 999px;
+      padding: 7px 12px;
+      font-size: 12px;
+      font-weight: 900;
+      white-space: nowrap;
+    }
+
+    .status.novo {
+      background: #f7e1e8;
+      color: var(--wine-dark);
+    }
+
+    .status.producao {
+      background: #fff1d6;
+      color: #8a5a12;
+    }
+
+    .status.finalizado {
+      background: #dcfce7;
+      color: #166534;
+    }
+
+    .status.cancelado {
+      background: #fee2e2;
+      color: #991b1b;
+    }
+
+    .order-items {
+      list-style: none;
+      display: grid;
+      gap: 8px;
+      margin: 12px 0;
+      padding: 0;
+    }
+
+    .order-items li {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      background: #fff;
+      border: 1px solid #f0e2da;
+      border-radius: 12px;
+      padding: 10px;
+      color: var(--chocolate);
+    }
+
+    .order-footer {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      color: var(--muted);
+      margin-top: 12px;
+      flex-wrap: wrap;
+    }
+
+    .order-total {
+      font-size: 18px;
+      font-weight: 900;
+      color: var(--wine);
+    }
+
+    .empty {
+      padding: 18px;
+      border-radius: 16px;
+      background: var(--cream-2);
+      color: var(--muted);
+      border: 1px dashed var(--border);
+      font-weight: 700;
+    }
+
+    .payment-status {
+      display: inline-block;
+      margin-top: 6px;
+      padding: 5px 10px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 900;
+    }
+
+    .payment-status.pago {
+      background: #dcfce7;
+      color: #166534;
+    }
+
+    .payment-status.aguardando_pagamento {
+      background: #fee2e2;
+      color: #991b1b;
+    }
+
+    .payment-status.pendente {
+      background: #fff1d6;
+      color: #8a5a12;
+    }
+
+    .payment-status.recusado {
+      background: #fecaca;
+      color: #7f1d1d;
+    }
+
+    .payment-status.cancelado {
+      background: #e5e7eb;
+      color: #374151;
+    }
+
+    @media(max-width: 850px) {
+      .account-page {
+        margin: 20px auto;
+      }
+
+      .account-header {
+        flex-direction: column;
+        align-items: flex-start;
+        padding: 24px;
+      }
+
+      .account-actions {
+        width: 100%;
+      }
+
+      .account-actions a,
+      .account-actions button {
+        width: 100%;
+        text-align: center;
+      }
+
+      .account-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .order-top {
+        flex-direction: column;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <main class="account-page">
+    <section class="account-header">
+      <div>
+        <h1>Minha Conta</h1>
+        <p>Acompanhe seus dados e histórico de pedidos.</p>
+      </div>
+
+      <div class="account-actions">
+        <a href="/" class="back-btn">Voltar para loja</a>
+        <button id="logoutBtn" class="logout-btn">Sair</button>
+      </div>
+    </section>
+
+    <section class="account-grid">
+      <aside class="account-card">
+        <h2>Dados do cliente</h2>
+
+        <div class="info-row">
+          <span>Nome</span>
+          <strong id="customerName">Carregando...</strong>
+        </div>
+
+        <div class="info-row">
+          <span>Telefone</span>
+          <strong id="customerPhone">-</strong>
+        </div>
+
+        <div class="info-row">
+          <span>E-mail</span>
+          <strong id="customerEmail">-</strong>
+        </div>
+
+        <div class="info-row">
+          <span>CPF</span>
+          <strong id="customerCpf">-</strong>
+        </div>
+
+        <div class="info-row">
+          <span>Data de nascimento</span>
+          <strong id="customerBirthDate">-</strong>
+        </div>
+
+        <div class="info-row">
+          <span>Cliente desde</span>
+          <strong id="customerCreated">-</strong>
+        </div>
+      </aside>
+
+      <section class="account-card">
+        <h2>Meus pedidos</h2>
+        <div id="ordersList" class="orders-list">
+          <div class="empty">Carregando pedidos...</div>
+        </div>
+      </section>
+    </section>
+  </main>
+
+  <script>
+    const customerName = document.getElementById('customerName');
+    const customerPhone = document.getElementById('customerPhone');
+    const customerEmail = document.getElementById('customerEmail');
+    const customerCreated = document.getElementById('customerCreated');
+    const ordersList = document.getElementById('ordersList');
+    const logoutBtn = document.getElementById('logoutBtn');
+    const customerCpf = document.getElementById('customerCpf');
+    const customerBirthDate = document.getElementById('customerBirthDate');
+
+    function formatMoney(value) {
+      return Number(value || 0).toLocaleString('pt-BR', {
+        style: 'currency',
+        currency: 'BRL'
+      });
+    }
+
+    function formatDate(dateString) {
+      if (!dateString) return '-';
+
+      return new Date(dateString).toLocaleDateString('pt-BR', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+      });
+    }
+
+    function statusLabel(status) {
+      const map = {
+        novo: 'Novo',
+        producao: 'Em produção',
+        finalizado: 'Finalizado',
+        cancelado: 'Cancelado'
+      };
+
+      return map[status] || status || 'Novo';
+    }
+
+    function paymentStatusLabel(status) {
+      const map = {
+        pago: 'Pago',
+        aguardando_pagamento: 'Aguardando pagamento',
+        pendente: 'Pendente',
+        recusado: 'Recusado',
+        cancelado: 'Cancelado'
+      };
+
+      return map[status] || 'Aguardando pagamento';
+    }
+
+    async function carregarCliente() {
+      const response = await fetch('/api/customer/me');
+
+      if (!response.ok) {
+        window.location.href = '/login.html';
+        return;
+      }
+
+      const data = await response.json();
+      const customer = data.customer;
+      customerCpf.textContent = customer.cpf || '-';
+
+      customerBirthDate.textContent =
+        customer.birth_date
+          ? new Date(customer.birth_date).toLocaleDateString('pt-BR')
+          : '-';
+          
+      customerName.textContent = customer.name || '-';
+      customerPhone.textContent = customer.phone || '-';
+      customerEmail.textContent = customer.email || '-';
+      customerCreated.textContent = formatDate(customer.created_at);
+    }
+
+    async function carregarPedidos() {
+      const response = await fetch('/api/customer/orders');
+
+      if (!response.ok) {
+        ordersList.innerHTML = '<div class="empty">Não foi possível carregar seus pedidos.</div>';
+        return;
+      }
+
+      const data = await response.json();
+      const orders = data.orders || [];
+
+      if (orders.length === 0) {
+        ordersList.innerHTML = '<div class="empty">Você ainda não realizou nenhum pedido.</div>';
+        return;
+      }
+
+      ordersList.innerHTML = '';
+
+      orders.forEach(order => {
+        const div = document.createElement('div');
+        div.className = 'order-card';
+
+        const itemsHtml = (order.items || []).map(item => `
+          <li>
+            <span>${item.quantity}x ${item.product_name}</span>
+            <strong>${formatMoney(Number(item.quantity || 0) * Number(item.price || 0))}</strong>
+          </li>
+        `).join('');
+
+        div.innerHTML = `
+          <div class="order-top">
+            <div>
+              <strong>Pedido #${order.id}</strong>
+              <small>${formatDate(order.created_at)}</small>
+            </div>
+
+            <span class="status ${order.status}">
+              ${statusLabel(order.status)}
+            </span>
+          </div>
+
+          <ul class="order-items">
+            ${itemsHtml}
+          </ul>
+
+          <div class="order-footer">
+            <span>
+              Pagamento: ${order.payment || '-'}<br>
+              Status do pagamento:
+              <strong class="payment-status ${order.payment_status || 'aguardando_pagamento'}">
+                ${paymentStatusLabel(order.payment_status)}
+              </strong>
+              ${order.paid_at ? `<br>Pago em: ${formatDate(order.paid_at)}` : ''}
+            </span>
+            <span class="order-total">${formatMoney(order.total)}</span>
+          </div>
+
+          <div class="order-footer">
+            <span>Endereço: ${order.address || 'Retirada na loja'}</span>
+          </div>
+
+          ${order.note ? `
+            <div class="order-footer">
+              <span>Obs.: ${order.note}</span>
+            </div>
+          ` : ''}
+        `;
+
+        ordersList.appendChild(div);
+      });
+    }
+
+    logoutBtn.addEventListener('click', async () => {
+      await fetch('/api/customer/logout', {
+        method: 'POST'
+      });
+
+      window.location.href = '/';
+    });
+
+    document.addEventListener('DOMContentLoaded', async () => {
+      await carregarCliente();
+      await carregarPedidos();
+    });
+  </script>
+
+</body>
+</html>
