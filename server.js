@@ -1008,6 +1008,141 @@ app.put('/api/admin/orders/:id/status', requireAuth, async (req, res) => {
   res.json({ ok: true });
 });
 
+// ================= IMPRESSÃO DE PEDIDOS =================
+
+function requirePrintAgent(req, res, next) {
+  const expectedToken = process.env.PRINT_AGENT_TOKEN;
+
+  if (!expectedToken) {
+    return res.status(500).json({
+      error: 'PRINT_AGENT_TOKEN não configurado no servidor.'
+    });
+  }
+
+  const receivedToken = req.headers['x-print-agent-token'];
+
+  if (receivedToken !== expectedToken) {
+    return res.status(401).json({
+      error: 'Agente de impressão não autorizado.'
+    });
+  }
+
+  next();
+}
+
+app.get('/api/admin/orders/to-print', requirePrintAgent, async (req, res) => {
+  try {
+    const db = await getDb();
+
+    const orders = await db.all(`
+      SELECT *
+      FROM orders
+      WHERE
+        status NOT IN ('cancelado', 'expirado')
+        AND (
+          COALESCE(is_printed, FALSE) = FALSE
+          OR COALESCE(reprint_requested, FALSE) = TRUE
+        )
+      ORDER BY id ASC
+      LIMIT 10
+    `);
+
+    for (const order of orders) {
+      order.items = await db.all(`
+        SELECT *
+        FROM order_items
+        WHERE order_id = $1
+        ORDER BY id ASC
+      `, [order.id]);
+    }
+
+    res.json({ ok: true, orders });
+  } catch (error) {
+    console.error('Erro ao buscar pedidos para impressão:', error);
+    res.status(500).json({
+      error: 'Erro ao buscar pedidos para impressão.'
+    });
+  }
+});
+
+app.post('/api/admin/orders/:id/printed', requirePrintAgent, async (req, res) => {
+  try {
+    const db = await getDb();
+    const id = Number(req.params.id);
+
+    if (!id) {
+      return res.status(400).json({
+        error: 'Pedido inválido.'
+      });
+    }
+
+    await db.run(`
+      UPDATE orders
+      SET
+        is_printed = TRUE,
+        printed_at = CURRENT_TIMESTAMP,
+        reprint_requested = FALSE,
+        reprint_requested_at = NULL
+      WHERE id = $1
+    `, [id]);
+
+    res.json({ ok: true });
+  } catch (error) {
+    console.error('Erro ao marcar pedido como impresso:', error);
+    res.status(500).json({
+      error: 'Erro ao marcar pedido como impresso.'
+    });
+  }
+});
+
+app.post('/api/admin/orders/:id/reprint', requireAuth, async (req, res) => {
+  try {
+    const db = await getDb();
+    const id = Number(req.params.id);
+
+    if (!id) {
+      return res.status(400).json({
+        error: 'Pedido inválido.'
+      });
+    }
+
+    const order = await db.get(`
+      SELECT id
+      FROM orders
+      WHERE id = $1
+    `, [id]);
+
+    if (!order) {
+      return res.status(404).json({
+        error: 'Pedido não encontrado.'
+      });
+    }
+
+    await db.run(`
+      UPDATE orders
+      SET
+        reprint_requested = TRUE,
+        reprint_requested_at = CURRENT_TIMESTAMP
+      WHERE id = $1
+    `, [id]);
+
+    await logAudit(req, 'solicitou reimpressão de pedido', {
+      pedido: id
+    });
+
+    res.json({
+      ok: true,
+      message: 'Pedido enviado para reimpressão.'
+    });
+  } catch (error) {
+    console.error('Erro ao solicitar reimpressão:', error);
+    res.status(500).json({
+      error: 'Erro ao solicitar reimpressão.'
+    });
+  }
+});
+
+
 // ================= AUDITORIA =================
 
 app.get('/api/admin/audit', requireAuth, async (req, res) => {
