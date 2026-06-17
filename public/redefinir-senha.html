@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Redefinir senha | Delícias da Aninha</title>
+  <link rel="icon" href="/assets/logo.png" type="image/png">
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body class="login-customer-body">
+
+  <main class="customer-auth-page">
+    <section class="customer-auth-card">
+      <img src="/assets/logo.png" alt="Delícias da Aninha" class="customer-auth-logo">
+
+      <span class="customer-auth-badge">Nova senha</span>
+
+      <h1>Redefinir senha</h1>
+      <p>Crie uma nova senha para acessar sua conta.</p>
+
+      <form id="resetPasswordForm" class="customer-auth-form" style="display:none;">
+        <label for="password">Nova senha</label>
+        <input
+          type="password"
+          id="password"
+          placeholder="Digite a nova senha"
+          minlength="6"
+          required
+        >
+
+        <label for="confirmPassword">Confirmar nova senha</label>
+        <input
+          type="password"
+          id="confirmPassword"
+          placeholder="Confirme a nova senha"
+          minlength="6"
+          required
+        >
+
+        <button type="submit">Salvar nova senha</button>
+      </form>
+
+      <span id="resetMsg" class="customer-auth-msg">Validando link...</span>
+
+      <div class="customer-auth-footer" id="loginLink" style="display:none;">
+        <span>Senha alterada?</span>
+        <a href="/login.html">Entrar na conta</a>
+      </div>
+
+      <a href="/" class="customer-auth-back">← Voltar para loja</a>
+    </section>
+  </main>
+
+  <script>
+    const resetPasswordForm = document.getElementById('resetPasswordForm');
+    const resetMsg = document.getElementById('resetMsg');
+    const loginLink = document.getElementById('loginLink');
+    const params = new URLSearchParams(window.location.search);
+    const token = params.get('token') || '';
+
+    function setMessage(text, type) {
+      resetMsg.textContent = text;
+      resetMsg.className = 'customer-auth-msg';
+      if (type) resetMsg.classList.add(type);
+    }
+
+    async function validarToken() {
+      if (!token) {
+        setMessage('Link inválido ou expirado.', 'error');
+        return;
+      }
+
+      try {
+        const response = await fetch(`/api/customer/reset-password/${encodeURIComponent(token)}`);
+        const data = await response.json();
+
+        if (!response.ok) {
+          setMessage(data.error || 'Link inválido ou expirado.', 'error');
+          return;
+        }
+
+        setMessage('Link validado. Informe sua nova senha.', 'success');
+        resetPasswordForm.style.display = 'grid';
+      } catch (error) {
+        setMessage('Erro de conexão. Tente novamente.', 'error');
+      }
+    }
+
+    resetPasswordForm.addEventListener('submit', async (event) => {
+      event.preventDefault();
+
+      const password = document.getElementById('password').value;
+      const confirmPassword = document.getElementById('confirmPassword').value;
+      const button = resetPasswordForm.querySelector('button');
+
+      button.disabled = true;
+      button.textContent = 'Salvando...';
+
+      try {
+        const response = await fetch('/api/customer/reset-password', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ token, password, confirmPassword })
+        });
+
+        const data = await response.json();
+
+        if (!response.ok) {
+          setMessage(data.error || 'Não foi possível redefinir a senha.', 'error');
+          return;
+        }
+
+        resetPasswordForm.style.display = 'none';
+        loginLink.style.display = 'flex';
+        setMessage(data.message || 'Senha alterada com sucesso.', 'success');
+      } catch (error) {
+        setMessage('Erro de conexão. Tente novamente.', 'error');
+      } finally {
+        button.disabled = false;
+        button.textContent = 'Salvar nova senha';
+      }
+    });
+
+    document.addEventListener('DOMContentLoaded', validarToken);
+  </script>
+
+</body>
+</html>

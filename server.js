@@ -4,7 +4,10 @@ const fs = require('fs');
 const multer = require('multer');
 const session = require('express-session');
 const bcrypt = require('bcryptjs');
+const crypto = require('crypto');
 const { getDb } = require('./src/db');
+const { Resend } = require('resend');
+const resend = new Resend(process.env.RESEND_API_KEY);
 
 const cloudinary = require('cloudinary').v2;
 const streamifier = require('streamifier');
@@ -107,6 +110,138 @@ function clientIp(req) {
     .split(',')[0]
     .trim();
 }
+
+
+function sha256(value) {
+  return crypto.createHash('sha256').update(String(value)).digest('hex');
+}
+
+function appUrl(req) {
+  const configured = String(process.env.APP_URL || '').trim().replace(/\/$/, '');
+  if (configured) return configured;
+
+  const protocol = req.headers['x-forwarded-proto'] || req.protocol || 'http';
+  return `${protocol}://${req.get('host')}`;
+}
+
+
+
+async function sendPasswordResetEmail({
+  to,
+  customerName,
+  resetLink,
+  storeName,
+  logoUrl,
+  primaryColor
+}) {
+
+  const html = `
+    <div style="margin:0;padding:0;background:#f8f2ec;font-family:Arial,sans-serif;">
+      <div style="max-width:600px;margin:40px auto;background:#fff;border-radius:16px;overflow:hidden;border:1px solid #eee;">
+
+        <div style="background:${primaryColor || '#9b2242'};padding:30px;text-align:center;color:#fff;">
+          ${
+            logoUrl
+              ? `<img src="${logoUrl}" style="max-width:120px;margin-bottom:15px;">`
+              : ""
+          }
+
+          <h1 style="margin:0;">
+            ${storeName || "Delícias da Aninha"}
+          </h1>
+
+          <p style="margin-top:10px;">
+            Recuperação de senha
+          </p>
+        </div>
+
+        <div style="padding:35px;">
+
+          <p>Olá <strong>${customerName}</strong>,</p>
+
+          <p>
+            Recebemos uma solicitação para redefinir a senha da sua conta.
+          </p>
+
+          <p>
+            Clique no botão abaixo para criar uma nova senha.
+          </p>
+
+          <div style="text-align:center;margin:35px 0;">
+
+            <a
+              href="${resetLink}"
+              style="
+                background:${primaryColor || "#9b2242"};
+                color:white;
+                padding:15px 28px;
+                text-decoration:none;
+                border-radius:10px;
+                display:inline-block;
+                font-weight:bold;
+            ">
+              Redefinir minha senha
+            </a>
+
+          </div>
+
+          <p>
+            Caso o botão não funcione, copie o link abaixo:
+          </p>
+
+          <p style="word-break:break-all;color:#666;">
+            ${resetLink}
+          </p>
+
+          <hr>
+
+          <small>
+            Este link expira em 15 minutos.
+          </small>
+
+        </div>
+
+      </div>
+    </div>
+  `;
+
+  try {
+
+    const { data, error } = await resend.emails.send({
+
+      from: process.env.EMAIL_FROM,
+
+      to: [to],
+
+      subject: `Recuperação de senha - ${storeName || "Delícias da Aninha"}`,
+
+      html
+
+    });
+
+    if (error) {
+      console.error("Erro Resend:", error);
+      throw new Error(error.message);
+    }
+
+    console.log("======================================");
+    console.log("EMAIL ENVIADO COM SUCESSO");
+    console.log(data);
+    console.log("======================================");
+
+    return true;
+
+  } catch (err) {
+
+    console.error("Erro ao enviar email:", err);
+
+    throw err;
+
+  }
+
+}
+
+
 
 async function logAudit(req, action, details = {}) {
   try {
@@ -296,6 +431,125 @@ app.get('/api/customer/me', requireCustomerAuth, async (req, res) => {
   } catch (error) {
     console.error('Erro customer/me:', error);
     res.status(500).json({ error: 'Erro ao carregar cliente.' });
+  }
+});
+
+
+// ================= RECUPERAÇÃO DE SENHA =================
+
+app.post('/api/customer/forgot-password', async (req, res) => {
+  try {
+    const db = await getDb();
+    const email = String(req.body.email || '').trim().toLowerCase();
+
+    if (!email || !email.includes('@')) {
+      return res.status(400).json({ error: 'Informe um e-mail válido.' });
+    }
+
+    const customer = await db.get(`
+      SELECT id, name, email, is_active
+      FROM customers
+      WHERE LOWER(email) = LOWER($1)
+      LIMIT 1
+    `, [email]);
+
+    const genericMessage = 'Se existir uma conta vinculada a este e-mail, enviaremos um link para redefinição de senha.';
+
+    if (!customer || customer.is_active === false) {
+      return res.json({ ok: true, message: genericMessage });
+    }
+
+    const rawToken = crypto.randomBytes(32).toString('hex');
+    const tokenHash = sha256(rawToken);
+
+    await db.run(`
+      UPDATE customers
+      SET reset_token = $1,
+          reset_token_expires = NOW() + INTERVAL '15 minutes',
+          updated_at = CURRENT_TIMESTAMP
+      WHERE id = $2
+    `, [tokenHash, customer.id]);
+
+    const settings = await db.get(`SELECT store_name, logo_url, primary_color FROM settings WHERE id = 1`);
+    const resetLink = `${appUrl(req)}/redefinir-senha.html?token=${rawToken}`;
+
+    await sendPasswordResetEmail({
+      to: customer.email,
+      customerName: customer.name,
+      resetLink,
+      storeName: settings?.store_name || 'Delícias da Aninha',
+      logoUrl: settings?.logo_url || '',
+      primaryColor: settings?.primary_color || '#8b1e3f'
+    });
+
+    res.json({ ok: true, message: genericMessage });
+  } catch (error) {
+    console.error('Erro forgot-password:', error);
+    res.status(500).json({ error: 'Erro ao solicitar redefinição de senha.' });
+  }
+});
+
+app.get('/api/customer/reset-password/:token', async (req, res) => {
+  try {
+    const db = await getDb();
+    const rawToken = String(req.params.token || '').trim();
+
+    if (!rawToken) return res.status(400).json({ error: 'Token inválido.' });
+
+    const customer = await db.get(`
+      SELECT id
+      FROM customers
+      WHERE reset_token = $1
+        AND reset_token_expires > NOW()
+      LIMIT 1
+    `, [sha256(rawToken)]);
+
+    if (!customer) return res.status(400).json({ error: 'Link inválido ou expirado.' });
+
+    res.json({ ok: true });
+  } catch (error) {
+    console.error('Erro validar token:', error);
+    res.status(500).json({ error: 'Erro ao validar link.' });
+  }
+});
+
+app.post('/api/customer/reset-password', async (req, res) => {
+  try {
+    const db = await getDb();
+    const rawToken = String(req.body.token || '').trim();
+    const password = String(req.body.password || '');
+    const confirmPassword = String(req.body.confirmPassword || '');
+
+    if (!rawToken) return res.status(400).json({ error: 'Token inválido.' });
+    if (!password || password.length < 6) return res.status(400).json({ error: 'A nova senha deve ter pelo menos 6 caracteres.' });
+    if (password !== confirmPassword) return res.status(400).json({ error: 'A confirmação da senha não confere.' });
+
+    const customer = await db.get(`
+      SELECT id
+      FROM customers
+      WHERE reset_token = $1
+        AND reset_token_expires > NOW()
+      LIMIT 1
+    `, [sha256(rawToken)]);
+
+    if (!customer) return res.status(400).json({ error: 'Link inválido ou expirado.' });
+
+    const passwordHash = bcrypt.hashSync(password, 10);
+
+    await db.run(`
+      UPDATE customers
+      SET password = $1,
+          password_hash = $1,
+          reset_token = NULL,
+          reset_token_expires = NULL,
+          updated_at = CURRENT_TIMESTAMP
+      WHERE id = $2
+    `, [passwordHash, customer.id]);
+
+    res.json({ ok: true, message: 'Senha alterada com sucesso.' });
+  } catch (error) {
+    console.error('Erro reset-password:', error);
+    res.status(500).json({ error: 'Erro ao redefinir senha.' });
   }
 });
 

@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Esqueci minha senha | Delícias da Aninha</title>
+  <link rel="icon" href="/assets/logo.png" type="image/png">
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body class="login-customer-body">
+
+  <main class="customer-auth-page">
+    <section class="customer-auth-card">
+      <img src="/assets/logo.png" alt="Delícias da Aninha" class="customer-auth-logo">
+
+      <span class="customer-auth-badge">Recuperar acesso</span>
+
+      <h1>Esqueci minha senha</h1>
+      <p>Informe o e-mail cadastrado. Enviaremos um link para você criar uma nova senha.</p>
+
+      <form id="forgotPasswordForm" class="customer-auth-form">
+        <label for="email">E-mail cadastrado</label>
+        <input
+          type="email"
+          id="email"
+          placeholder="Digite seu e-mail"
+          required
+        >
+
+        <button type="submit">Enviar link de recuperação</button>
+
+        <span id="forgotMsg" class="customer-auth-msg"></span>
+      </form>
+
+      <div class="customer-auth-footer">
+        <span>Lembrou sua senha?</span>
+        <a href="/login.html">Entrar</a>
+      </div>
+
+      <a href="/" class="customer-auth-back">← Voltar para loja</a>
+    </section>
+  </main>
+
+  <script>
+    const forgotPasswordForm = document.getElementById('forgotPasswordForm');
+    const forgotMsg = document.getElementById('forgotMsg');
+
+    forgotPasswordForm.addEventListener('submit', async (event) => {
+      event.preventDefault();
+
+      forgotMsg.textContent = '';
+      forgotMsg.className = 'customer-auth-msg';
+
+      const email = document.getElementById('email').value.trim();
+      const button = forgotPasswordForm.querySelector('button');
+      button.disabled = true;
+      button.textContent = 'Enviando...';
+
+      try {
+        const response = await fetch('/api/customer/forgot-password', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ email })
+        });
+
+        const data = await response.json();
+
+        if (!response.ok) {
+          forgotMsg.textContent = data.error || 'Não foi possível enviar o link.';
+          forgotMsg.classList.add('error');
+          return;
+        }
+
+        forgotMsg.textContent = data.message || 'Se existir uma conta vinculada a este e-mail, enviaremos um link para redefinição de senha.';
+        forgotMsg.classList.add('success');
+        forgotPasswordForm.reset();
+      } catch (error) {
+        forgotMsg.textContent = 'Erro de conexão. Tente novamente.';
+        forgotMsg.classList.add('error');
+      } finally {
+        button.disabled = false;
+        button.textContent = 'Enviar link de recuperação';
+      }
+    });
+  </script>
+
+</body>
+</html>
