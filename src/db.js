@@ -190,7 +190,13 @@ async function getDb() {
     ALTER TABLE customers ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP;
 
     ALTER TABLE orders ADD COLUMN IF NOT EXISTS customer_id INTEGER REFERENCES customers(id) ON DELETE SET NULL;
-  `);
+    ALTER TABLE orders ADD COLUMN IF NOT EXISTS is_printed BOOLEAN DEFAULT FALSE;
+    ALTER TABLE orders ADD COLUMN IF NOT EXISTS printed_at TIMESTAMP;
+    ALTER TABLE orders ADD COLUMN IF NOT EXISTS reprint_requested BOOLEAN DEFAULT FALSE;
+    ALTER TABLE orders ADD COLUMN IF NOT EXISTS reprint_requested_at TIMESTAMP;
+      
+  
+    `);
 
   return db;
 }
