@@ -285,6 +285,75 @@ nav a:hover {
   color: var(--wine);
 }
 
+/* ================= HERO COM AVATAR DA ANINHA ================= */
+
+.aninha-showcase {
+  min-height: 500px;
+}
+
+.aninha-card {
+  position: relative;
+  width: min(440px, 92%);
+  height: 480px;
+  border-radius: 42px;
+  background: linear-gradient(180deg, #fff 0%, #fff8f4 100%);
+  border: 1px solid var(--border);
+  box-shadow: 0 28px 80px var(--shadow);
+  overflow: hidden;
+  transform: rotate(2deg);
+}
+
+.aninha-image-wrap {
+  position: absolute;
+  inset: 24px 24px auto 24px;
+  height: 300px;
+  border-radius: 32px;
+  background: linear-gradient(135deg, #f8e6eb, #e4f0f4);
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.aninha-image-wrap img {
+  width: 72%;
+  max-width: 255px;
+  height: auto;
+  object-fit: contain;
+  filter: drop-shadow(0 16px 24px rgba(43, 20, 14, .18));
+}
+
+.aninha-card-content {
+  position: absolute;
+  left: 34px;
+  right: 34px;
+  bottom: 34px;
+  z-index: 3;
+}
+
+.aninha-card .tag-discount {
+  margin-top: 0;
+  font-size: 12px;
+  padding: 7px 12px;
+}
+
+.aninha-card h3 {
+  font-size: 28px;
+  margin: 14px 0 6px;
+  color: var(--chocolate);
+}
+
+.aninha-card p {
+  font-size: 15px;
+  margin: 0 0 14px;
+  color: var(--muted);
+  line-height: 1.4;
+}
+
+.aninha-card strong {
+  font-size: 30px;
+  color: var(--wine);
+}
 .floating-card {
   position: absolute;
   background: #fff;
@@ -834,6 +903,42 @@ footer {
     width: 100%;
     text-align: center;
   }
+.aninha-showcase {
+  min-height: 430px;
+}
+
+.aninha-card {
+  height: 420px;
+  transform: none;
+}
+
+.aninha-image-wrap {
+  height: 250px;
+  inset: 20px 20px auto 20px;
+}
+
+.aninha-image-wrap img {
+  width: 72%;
+  max-width: 215px;
+}
+
+.aninha-card-content {
+  left: 24px;
+  right: 24px;
+  bottom: 24px;
+}
+
+.aninha-card h3 {
+  font-size: 24px;
+}
+
+.aninha-card p {
+  font-size: 14px;
+}
+
+.aninha-card strong {
+  font-size: 26px;
+}
 }
 
 
