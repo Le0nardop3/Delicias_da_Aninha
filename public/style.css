@@ -1417,3 +1417,46 @@ nav .menu a.login-client:hover {
 .back-address-button:hover {
   background: #f1dce6;
 }
+
+/* ================= HEADER MOBILE PEQUENO ================= */
+
+@media (max-width: 470px) {
+
+  .header {
+    padding: 0 4%;
+    gap: 8px;
+  }
+
+  .logo {
+    font-size: 19px;
+    line-height: 1.05;
+    flex-shrink: 1;
+  }
+
+  .header-buttons {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-shrink: 0;
+  }
+
+  .header-buttons .btn-enter,
+  .header-buttons .cart-button {
+    width: auto;
+    min-width: 67px;
+    height: 42px;
+    padding: 8px 12px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    white-space: nowrap;
+    font-size: 13px;
+    line-height: 1;
+    border-radius: 6px;
+  }
+
+  .header-buttons .cart-button strong {
+    margin-left: 5px;
+    padding: 2px 6px;
+  }
+}
