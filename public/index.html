@@ -115,8 +115,29 @@
       <div class="cart-total">Total: <strong id="cartTotal">R$ 0,00</strong></div>
 
       <form class="checkout" id="checkoutForm">
-        <input type="text" id="customerName" placeholder="Seu nome" required>
-        <input type="text" id="customerAddress" placeholder="Endereço ou retirada no balcão" required>
+        <div id="loginRequiredBox" class="login-required-box" style="display:none;">
+          <strong>Entre na sua conta para finalizar o pedido.</strong>
+          <p>Assim conseguimos vincular seu pedido ao seu histórico.</p>
+          <a href="/login.html" class="btn primary full">Entrar ou criar conta</a>
+        </div>
+
+        <input type="text" id="customerName" placeholder="Seu nome" readonly>
+
+        <div class="address-box">
+          <label>Endereço de entrega</label>
+          <input type="text" id="addressSearch" placeholder="Digite sua rua, bairro ou avenida" autocomplete="off">
+
+          <div id="addressSuggestions" class="address-suggestions"></div>
+
+          <div class="address-grid">
+            <input type="text" id="addressNumber" placeholder="Número">
+            <input type="text" id="addressComplement" placeholder="Complemento">
+          </div>
+
+          <input type="text" id="addressReference" placeholder="Ponto de referência">
+
+          <input type="hidden" id="customerAddress">
+        </div>
         <select id="paymentMethod" required>
           <option value="">Forma de pagamento</option>
           <option>Pix</option>

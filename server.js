@@ -140,11 +140,10 @@ async function sendPasswordResetEmail({
       <div style="max-width:600px;margin:40px auto;background:#fff;border-radius:16px;overflow:hidden;border:1px solid #eee;">
 
         <div style="background:${primaryColor || '#9b2242'};padding:30px;text-align:center;color:#fff;">
-          ${
-            logoUrl
-              ? `<img src="${logoUrl}" style="max-width:120px;margin-bottom:15px;">`
-              : ""
-          }
+          ${logoUrl
+      ? `<img src="${logoUrl}" style="max-width:120px;margin-bottom:15px;">`
+      : ""
+    }
 
           <h1 style="margin:0;">
             ${storeName || "Delícias da Aninha"}
@@ -881,6 +880,11 @@ app.delete('/api/admin/categories/:id', requireAuth, async (req, res) => {
 app.post('/api/orders', async (req, res) => {
   try {
     const db = await getDb();
+    if (!req.session?.customerId) {
+      return res.status(401).json({
+        error: 'Faça login para finalizar o pedido.'
+      });
+    }
     const { items, customer_name, customer_phone, address, payment, note } = req.body;
 
     if (!items || items.length === 0) return res.status(400).json({ error: 'Pedido vazio' });

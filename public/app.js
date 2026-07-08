@@ -5,6 +5,8 @@ let currentCategory = 'Todos';
 let whatsappNumber = '5583999999999';
 let isStoreOpen = true;
 let currentCustomer = null;
+let selectedAddress = null;
+let addressTimer = null;
 const money = value => Number(value || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 
 async function loadData() {
@@ -123,16 +125,33 @@ function renderCart() {
 async function checkCustomerSession() {
   const loginButton = document.querySelector('.btn-enter');
   const nameInput = document.getElementById('customerName');
+  const loginRequiredBox = document.getElementById('loginRequiredBox');
+  const checkoutForm = document.getElementById('checkoutForm');
 
   try {
     const response = await fetch('/api/customer/me');
 
     if (!response.ok) {
       currentCustomer = null;
+
       if (loginButton) {
         loginButton.textContent = 'Entrar';
         loginButton.href = '/login.html';
       }
+
+      if (loginRequiredBox) {
+        loginRequiredBox.style.display = 'block';
+      }
+
+      if (checkoutForm) {
+        checkoutForm.classList.add('needs-login');
+      }
+
+      if (nameInput) {
+        nameInput.value = '';
+        nameInput.readOnly = true;
+      }
+
       return;
     }
 
@@ -144,14 +163,232 @@ async function checkCustomerSession() {
       loginButton.href = '/minha-conta.html';
     }
 
+    if (loginRequiredBox) {
+      loginRequiredBox.style.display = 'none';
+    }
+
+    if (checkoutForm) {
+      checkoutForm.classList.remove('needs-login');
+    }
+
     if (nameInput && currentCustomer?.name) {
       nameInput.value = currentCustomer.name;
       nameInput.readOnly = true;
     }
+
   } catch (error) {
     currentCustomer = null;
+
+    if (loginRequiredBox) {
+      loginRequiredBox.style.display = 'block';
+    }
+
+    if (checkoutForm) {
+      checkoutForm.classList.add('needs-login');
+    }
   }
 }
+
+
+// ================= ENDEREÇO =================
+
+
+
+function montarEnderecoFinal() {
+  const addressSearch = document.getElementById('addressSearch');
+  const addressNumber = document.getElementById('addressNumber');
+  const addressComplement = document.getElementById('addressComplement');
+  const addressReference = document.getElementById('addressReference');
+
+  let rua = addressSearch?.value.trim() || '';
+
+  if (selectedAddress?.address) {
+    const a = selectedAddress.address;
+
+    const logradouro =
+      a.road ||
+      a.pedestrian ||
+      a.residential ||
+      a.street ||
+      rua;
+
+    const bairro =
+      a.suburb ||
+      a.neighbourhood ||
+      a.city_district ||
+      '';
+
+    const cidade =
+      a.city ||
+      a.town ||
+      a.municipality ||
+      'João Pessoa';
+
+    const estado =
+      a.state ||
+      'Paraíba';
+
+    rua = [logradouro, bairro, cidade, estado]
+      .filter(Boolean)
+      .join(', ');
+  }
+
+  const numero = addressNumber?.value.trim() || '';
+  const complemento = addressComplement?.value.trim() || '';
+  const referencia = addressReference?.value.trim() || '';
+
+  let endereco = rua;
+
+  if (numero) endereco += `, Nº ${numero}`;
+  if (complemento) endereco += `, Complemento: ${complemento}`;
+  if (referencia) endereco += `, Referência: ${referencia}`;
+
+  return endereco;
+}
+
+async function buscarEnderecos(query) {
+  const box = document.getElementById('addressSuggestions');
+
+  if (!box) return;
+
+  if (!query || query.length < 4) {
+    box.classList.remove('open');
+    box.innerHTML = '';
+    return;
+  }
+
+  try {
+    const url = `https://nominatim.openstreetmap.org/search?format=json&addressdetails=1&limit=5&countrycodes=br&q=${encodeURIComponent(query + ', João Pessoa, PB')}`;
+
+    const response = await fetch(url);
+
+    if (!response.ok) {
+      throw new Error('Erro ao buscar endereço');
+    }
+
+    const data = await response.json();
+
+    window.__addressResults = data;
+
+    if (!data.length) {
+      box.innerHTML = `
+        <div class="address-suggestion">
+          Nenhum endereço encontrado.
+        </div>
+      `;
+
+      box.classList.add('open');
+      return;
+    }
+
+    box.innerHTML = data.map((item, index) => {
+      const a = item.address || {};
+
+      const logradouro =
+        a.road ||
+        a.pedestrian ||
+        a.residential ||
+        a.street ||
+        '';
+
+      const bairro =
+        a.suburb ||
+        a.neighbourhood ||
+        a.city_district ||
+        '';
+
+      const cidade =
+        a.city ||
+        a.town ||
+        a.municipality ||
+        'João Pessoa';
+
+      const estado =
+        a.state ||
+        'Paraíba';
+
+      const textoLimpo = [logradouro, bairro, cidade, estado]
+        .filter(Boolean)
+        .join(', ');
+
+      return `
+    <div
+      class="address-suggestion"
+      onclick="selecionarEndereco(${index})"
+    >
+      ${textoLimpo || item.display_name}
+    </div>
+  `;
+    }).join('');
+
+    box.classList.add('open');
+
+  } catch (error) {
+    console.error('Erro ao buscar endereços:', error);
+
+    box.innerHTML = `
+      <div class="address-suggestion">
+        Não foi possível buscar os endereços.
+      </div>
+    `;
+
+    box.classList.add('open');
+  }
+}
+
+
+function selecionarEndereco(index) {
+  const endereco = window.__addressResults?.[index];
+
+  if (!endereco) return;
+
+  selectedAddress = endereco;
+
+  const addressSearch = document.getElementById('addressSearch');
+  const box = document.getElementById('addressSuggestions');
+  const numberInput = document.getElementById('addressNumber');
+
+  if (addressSearch) {
+    const a = endereco.address || {};
+
+const logradouro =
+  a.road ||
+  a.pedestrian ||
+  a.residential ||
+  a.street ||
+  endereco.display_name;
+
+const bairro =
+  a.suburb ||
+  a.neighbourhood ||
+  a.city_district ||
+  '';
+
+const cidade =
+  a.city ||
+  a.town ||
+  a.municipality ||
+  'João Pessoa';
+
+const estado =
+  a.state ||
+  'Paraíba';
+
+addressSearch.value = [logradouro, bairro, cidade, estado]
+  .filter(Boolean)
+  .join(', ');
+  }
+
+  if (box) {
+    box.classList.remove('open');
+    box.innerHTML = '';
+  }
+
+  if (numberInput) {
+    numberInput.focus();
+  }
+}
+
 
 async function sendOrder(event) {
   event.preventDefault();
@@ -166,10 +403,21 @@ async function sendOrder(event) {
     return;
   }
 
-  const name = document.getElementById('customerName').value.trim();
-  const address = document.getElementById('customerAddress').value.trim();
+  if (!currentCustomer) {
+    alert('Você precisa entrar na sua conta para finalizar o pedido.');
+    window.location.href = '/login.html';
+    return;
+  }
+
+  const name = currentCustomer.name;
+  const address = montarEnderecoFinal();
   const payment = document.getElementById('paymentMethod').value;
   const note = document.getElementById('orderNote').value.trim();
+
+  if (!address || address.length < 8) {
+    alert('Informe um endereço válido.');
+    return;
+  }
 
   try {
     // 🔹 SALVAR NO BANCO
@@ -193,8 +441,13 @@ async function sendOrder(event) {
 
     const data = await response.json();
 
-    if (!data.ok) {
-      alert('Erro ao salvar pedido');
+    if (!response.ok || !data.ok) {
+      alert(data.error || 'Erro ao salvar pedido');
+
+      if (response.status === 401) {
+        window.location.href = '/login.html';
+      }
+
       return;
     }
 
@@ -236,6 +489,27 @@ function gerarMensagem(cart, orderId, name, address, payment, note) {
 document.getElementById('openCart').addEventListener('click', () => document.getElementById('cart').classList.add('open'));
 document.getElementById('closeCart').addEventListener('click', () => document.getElementById('cart').classList.remove('open'));
 document.getElementById('checkoutForm').addEventListener('submit', sendOrder);
+
+// ================= BUSCA DE ENDEREÇO =================
+
+const addressSearchInput = document.getElementById('addressSearch');
+
+if (addressSearchInput) {
+  addressSearchInput.addEventListener('input', (event) => {
+    const query = event.target.value.trim();
+
+    // Se o cliente alterar o endereço depois de selecionar,
+    // removemos a seleção anterior.
+    selectedAddress = null;
+
+    clearTimeout(addressTimer);
+
+    addressTimer = setTimeout(() => {
+      buscarEnderecos(query);
+    }, 500);
+  });
+}
+
 
 loadData().catch(() => {
   document.getElementById('products').innerHTML = '<p>Não foi possível carregar o cardápio.</p>';
