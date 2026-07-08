@@ -806,7 +806,7 @@ footer {
   }
 }
 
-@media(max-width: 560px) {
+@media(max-width: 570px) {
   .header {
     height: 70px;
     padding: 0 4%;
