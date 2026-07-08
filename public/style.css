@@ -1181,3 +1181,239 @@ nav .menu a.login-client:hover {
 .address-suggestion:hover {
   background: #fff4f7;
 }
+
+/* ================= ENDEREÇOS SALVOS ================= */
+
+.saved-addresses-box {
+  display: grid;
+  gap: 10px;
+}
+
+.saved-addresses-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.saved-addresses-header strong {
+  font-size: 14px;
+  color: var(--wine-dark);
+}
+
+.new-address-button {
+  border: 0;
+  background: transparent;
+  color: var(--wine);
+  font-size: 13px;
+  font-weight: 900;
+  cursor: pointer;
+}
+
+.new-address-button:hover {
+  text-decoration: underline;
+}
+
+#savedAddressesList {
+  display: grid;
+  gap: 8px;
+}
+
+.saved-address-card {
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  gap: 11px;
+  width: 100%;
+  padding: 13px;
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  cursor: pointer;
+  text-align: left;
+  transition: .2s;
+}
+
+.saved-address-card:hover {
+  border-color: var(--wine);
+  background: #fff9fb;
+}
+
+.saved-address-card.selected {
+  border: 2px solid var(--wine);
+  background: #fff5f8;
+}
+
+.saved-address-icon {
+  flex-shrink: 0;
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #f8e8ee;
+  border-radius: 10px;
+  font-size: 17px;
+}
+
+.saved-address-content {
+  min-width: 0;
+  flex: 1;
+}
+
+.saved-address-content strong {
+  display: block;
+  color: var(--chocolate);
+  font-size: 14px;
+  margin-bottom: 3px;
+}
+
+.saved-address-content span {
+  display: block;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.default-address-badge {
+  display: inline-block;
+  width: fit-content;
+  margin-top: 6px;
+  padding: 3px 7px;
+  border-radius: 999px;
+  background: #f8e8ee;
+  color: var(--wine);
+  font-size: 10px;
+  font-weight: 900;
+}
+
+
+/* ================= NOVO ENDEREÇO ================= */
+
+.new-address-box {
+  display: grid;
+  gap: 10px;
+}
+
+.address-search-wrapper {
+  position: relative;
+}
+
+.address-search-wrapper input {
+  width: 100%;
+}
+
+.address-details-box {
+  display: grid;
+  gap: 10px;
+}
+
+
+/* ================= ENDEREÇO SELECIONADO ================= */
+
+.selected-address-confirmation {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 12px;
+  background: #f7f9f9;
+  border: 1px solid #dce8e8;
+  border-radius: 13px;
+}
+
+.selected-address-confirmation > span {
+  font-size: 20px;
+}
+
+.selected-address-confirmation div {
+  min-width: 0;
+}
+
+.selected-address-confirmation small {
+  display: block;
+  margin-bottom: 3px;
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.selected-address-confirmation strong {
+  display: block;
+  color: var(--chocolate);
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+
+/* ================= SALVAR ENDEREÇO ================= */
+
+.save-address-option {
+  display: flex !important;
+  align-items: center;
+  gap: 9px;
+  cursor: pointer;
+  padding: 4px 0;
+}
+
+.save-address-option input {
+  width: 17px !important;
+  height: 17px;
+  margin: 0;
+  accent-color: var(--wine);
+  cursor: pointer;
+}
+
+.save-address-option span {
+  color: var(--brown);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.saved-address-card {
+  position: relative;
+  display: flex;
+  align-items: stretch;
+  gap: 8px;
+}
+
+.saved-address-main {
+  flex: 1;
+  border: 0;
+  background: transparent;
+  display: flex;
+  align-items: flex-start;
+  gap: 11px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.delete-address-button {
+  width: 34px;
+  height: 34px;
+  border: 0;
+  background: #fee2e2;
+  color: #991b1b;
+  border-radius: 10px;
+  font-size: 22px;
+  font-weight: 900;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.delete-address-button:hover {
+  background: #fecaca;
+}
+
+.back-address-button {
+  border: 0;
+  background: #f7eef3;
+  color: var(--wine);
+  font-weight: 900;
+  border-radius: 12px;
+  padding: 11px 13px;
+  cursor: pointer;
+  text-align: left;
+}
+
+.back-address-button:hover {
+  background: #f1dce6;
+}

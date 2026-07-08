@@ -578,6 +578,370 @@ app.get('/api/customer/orders', requireCustomerAuth, async (req, res) => {
   }
 });
 
+// ================= ENDEREÇOS DOS CLIENTES =================
+
+// LISTAR ENDEREÇOS DO CLIENTE
+app.get('/api/customer/addresses', requireCustomerAuth, async (req, res) => {
+  try {
+    const db = await getDb();
+
+    const addresses = await db.all(`
+      SELECT
+        id,
+        label,
+        street,
+        neighborhood,
+        city,
+        state,
+        number,
+        complement,
+        reference,
+        full_address,
+        latitude,
+        longitude,
+        is_default,
+        created_at,
+        updated_at
+      FROM customer_addresses
+      WHERE customer_id = $1
+      ORDER BY is_default DESC, id DESC
+    `, [req.session.customerId]);
+
+    res.json({
+      ok: true,
+      addresses
+    });
+
+  } catch (error) {
+    console.error('Erro ao carregar endereços:', error);
+
+    res.status(500).json({
+      error: 'Erro ao carregar endereços.'
+    });
+  }
+});
+
+
+// CADASTRAR NOVO ENDEREÇO
+app.post('/api/customer/addresses', requireCustomerAuth, async (req, res) => {
+  try {
+    const db = await getDb();
+
+    const customerId = req.session.customerId;
+
+    const label = String(req.body.label || 'Meu endereço').trim();
+
+    const street = String(req.body.street || '').trim();
+
+    const neighborhood = String(
+      req.body.neighborhood || ''
+    ).trim();
+
+    const city = String(
+      req.body.city || 'João Pessoa'
+    ).trim();
+
+    const state = String(
+      req.body.state || 'PB'
+    ).trim();
+
+    const number = String(req.body.number || '').trim();
+
+    const complement = String(
+      req.body.complement || ''
+    ).trim();
+
+    const reference = String(
+      req.body.reference || ''
+    ).trim();
+
+    const fullAddress = String(
+      req.body.full_address || ''
+    ).trim();
+
+    const latitude = req.body.latitude
+      ? Number(req.body.latitude)
+      : null;
+
+    const longitude = req.body.longitude
+      ? Number(req.body.longitude)
+      : null;
+
+
+    // ================= VALIDAÇÕES =================
+
+    if (!street) {
+      return res.status(400).json({
+        error: 'Selecione um endereço válido.'
+      });
+    }
+
+    if (!number) {
+      return res.status(400).json({
+        error: 'Informe o número do endereço.'
+      });
+    }
+
+    if (!fullAddress) {
+      return res.status(400).json({
+        error: 'Endereço completo inválido.'
+      });
+    }
+
+
+    // VERIFICA QUANTOS ENDEREÇOS O CLIENTE POSSUI
+
+    const countResult = await db.get(`
+      SELECT COUNT(*)::int AS total
+      FROM customer_addresses
+      WHERE customer_id = $1
+    `, [customerId]);
+
+    const totalAddresses = Number(countResult?.total || 0);
+
+
+    // PRIMEIRO ENDEREÇO É AUTOMATICAMENTE O PADRÃO
+
+    const isDefault = totalAddresses === 0;
+
+
+    // SALVAR ENDEREÇO
+
+    const address = await db.get(`
+      INSERT INTO customer_addresses (
+        customer_id,
+        label,
+        street,
+        neighborhood,
+        city,
+        state,
+        number,
+        complement,
+        reference,
+        full_address,
+        latitude,
+        longitude,
+        is_default
+      )
+
+      VALUES (
+        $1, $2, $3, $4, $5, $6,
+        $7, $8, $9, $10, $11, $12, $13
+      )
+
+      RETURNING *
+    `, [
+      customerId,
+      label,
+      street,
+      neighborhood || null,
+      city,
+      state,
+      number,
+      complement || null,
+      reference || null,
+      fullAddress,
+      latitude,
+      longitude,
+      isDefault
+    ]);
+
+
+    res.json({
+      ok: true,
+      address
+    });
+
+  } catch (error) {
+    console.error('Erro ao cadastrar endereço:', error);
+
+    res.status(500).json({
+      error: 'Erro ao cadastrar endereço.'
+    });
+  }
+});
+
+
+// DEFINIR ENDEREÇO PADRÃO
+app.put(
+  '/api/customer/addresses/:id/default',
+  requireCustomerAuth,
+  async (req, res) => {
+
+    try {
+      const db = await getDb();
+
+      const customerId = req.session.customerId;
+      const addressId = Number(req.params.id);
+
+
+      if (!addressId) {
+        return res.status(400).json({
+          error: 'Endereço inválido.'
+        });
+      }
+
+
+      // VERIFICA SE O ENDEREÇO PERTENCE AO CLIENTE
+
+      const address = await db.get(`
+        SELECT id
+        FROM customer_addresses
+        WHERE id = $1
+          AND customer_id = $2
+      `, [
+        addressId,
+        customerId
+      ]);
+
+
+      if (!address) {
+        return res.status(404).json({
+          error: 'Endereço não encontrado.'
+        });
+      }
+
+
+      // REMOVE PADRÃO DOS OUTROS ENDEREÇOS
+
+      await db.run(`
+        UPDATE customer_addresses
+        SET
+          is_default = FALSE,
+          updated_at = CURRENT_TIMESTAMP
+        WHERE customer_id = $1
+      `, [customerId]);
+
+
+      // DEFINE O NOVO ENDEREÇO PADRÃO
+
+      await db.run(`
+        UPDATE customer_addresses
+        SET
+          is_default = TRUE,
+          updated_at = CURRENT_TIMESTAMP
+        WHERE id = $1
+          AND customer_id = $2
+      `, [
+        addressId,
+        customerId
+      ]);
+
+
+      res.json({
+        ok: true
+      });
+
+    } catch (error) {
+      console.error(
+        'Erro ao definir endereço padrão:',
+        error
+      );
+
+      res.status(500).json({
+        error: 'Erro ao definir endereço padrão.'
+      });
+    }
+  }
+);
+
+
+// EXCLUIR ENDEREÇO
+app.delete(
+  '/api/customer/addresses/:id',
+  requireCustomerAuth,
+  async (req, res) => {
+
+    try {
+      const db = await getDb();
+
+      const customerId = req.session.customerId;
+      const addressId = Number(req.params.id);
+
+
+      if (!addressId) {
+        return res.status(400).json({
+          error: 'Endereço inválido.'
+        });
+      }
+
+
+      // BUSCA O ENDEREÇO ANTES DE EXCLUIR
+
+      const address = await db.get(`
+        SELECT id, is_default
+        FROM customer_addresses
+        WHERE id = $1
+          AND customer_id = $2
+      `, [
+        addressId,
+        customerId
+      ]);
+
+
+      if (!address) {
+        return res.status(404).json({
+          error: 'Endereço não encontrado.'
+        });
+      }
+
+
+      // EXCLUI
+
+      await db.run(`
+        DELETE FROM customer_addresses
+        WHERE id = $1
+          AND customer_id = $2
+      `, [
+        addressId,
+        customerId
+      ]);
+
+
+      // SE ERA PADRÃO, ESCOLHE OUTRO
+
+      if (address.is_default) {
+
+        const nextAddress = await db.get(`
+          SELECT id
+          FROM customer_addresses
+          WHERE customer_id = $1
+          ORDER BY id DESC
+          LIMIT 1
+        `, [customerId]);
+
+
+        if (nextAddress) {
+
+          await db.run(`
+            UPDATE customer_addresses
+            SET
+              is_default = TRUE,
+              updated_at = CURRENT_TIMESTAMP
+            WHERE id = $1
+          `, [nextAddress.id]);
+
+        }
+      }
+
+
+      res.json({
+        ok: true
+      });
+
+    } catch (error) {
+      console.error(
+        'Erro ao excluir endereço:',
+        error
+      );
+
+      res.status(500).json({
+        error: 'Erro ao excluir endereço.'
+      });
+    }
+  }
+);
+
 // ================= CATEGORIAS =================
 
 app.get('/api/categories', async (req, res) => {

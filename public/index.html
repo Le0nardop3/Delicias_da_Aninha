@@ -123,21 +123,94 @@
 
         <input type="text" id="customerName" placeholder="Seu nome" readonly>
 
-        <div class="address-box">
+
+
+
+
+        <div class="address-box" id="addressBox">
+
           <label>Endereço de entrega</label>
-          <input type="text" id="addressSearch" placeholder="Digite sua rua, bairro ou avenida" autocomplete="off">
 
-          <div id="addressSuggestions" class="address-suggestions"></div>
+          <!-- ENDEREÇOS JÁ SALVOS -->
+          <div id="savedAddressesBox" class="saved-addresses-box" style="display:none;">
 
-          <div class="address-grid">
-            <input type="text" id="addressNumber" placeholder="Número">
-            <input type="text" id="addressComplement" placeholder="Complemento">
+            <div class="saved-addresses-header">
+              <strong>Seus endereços</strong>
+
+              <button type="button" id="newAddressButton" class="new-address-button">
+                + Novo endereço
+              </button>
+            </div>
+
+            <div id="savedAddressesList"></div>
+
           </div>
 
-          <input type="text" id="addressReference" placeholder="Ponto de referência">
 
-          <input type="hidden" id="customerAddress">
+          <!-- CADASTRO DE NOVO ENDEREÇO -->
+          <div id="newAddressBox" class="new-address-box">
+            <button type="button" id="backToSavedAddressesButton" class="back-address-button" style="display:none;">
+              ← Voltar aos endereços salvos
+            </button>
+
+            <div class="address-search-wrapper">
+
+              <input type="text" id="addressSearch" placeholder="Digite sua rua, bairro ou avenida" autocomplete="off">
+
+              <div id="addressSuggestions" class="address-suggestions"></div>
+
+            </div>
+
+
+            <!-- APARECE SOMENTE DEPOIS DE SELECIONAR UMA RUA -->
+
+            <div id="addressDetailsBox" class="address-details-box" style="display:none;">
+
+              <div class="selected-address-confirmation">
+
+                <span>📍</span>
+
+                <div>
+                  <small>Endereço selecionado</small>
+                  <strong id="selectedAddressText"></strong>
+                </div>
+
+              </div>
+
+
+              <div class="address-grid">
+
+                <input type="text" id="addressNumber" placeholder="Número">
+
+                <input type="text" id="addressComplement" placeholder="Complemento">
+
+              </div>
+
+
+              <input type="text" id="addressReference" placeholder="Ponto de referência">
+
+
+              <input type="text" id="addressLabel" placeholder="Nome do endereço. Ex: Casa, Trabalho">
+
+
+              <label class="save-address-option">
+
+                <input type="checkbox" id="saveAddressCheckbox" checked>
+
+                <span>Salvar este endereço na minha conta</span>
+
+              </label>
+
+            </div>
+
+          </div>
+
         </div>
+
+
+
+
+
         <select id="paymentMethod" required>
           <option value="">Forma de pagamento</option>
           <option>Pix</option>

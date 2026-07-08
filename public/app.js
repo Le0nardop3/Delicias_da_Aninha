@@ -7,6 +7,8 @@ let isStoreOpen = true;
 let currentCustomer = null;
 let selectedAddress = null;
 let addressTimer = null;
+let savedAddresses = [];
+let selectedSavedAddress = null;
 const money = value => Number(value || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 
 async function loadData() {
@@ -175,6 +177,7 @@ async function checkCustomerSession() {
       nameInput.value = currentCustomer.name;
       nameInput.readOnly = true;
     }
+    await loadCustomerAddresses();
 
   } catch (error) {
     currentCustomer = null;
@@ -192,59 +195,297 @@ async function checkCustomerSession() {
 
 // ================= ENDEREÇO =================
 
+async function loadCustomerAddresses() {
+  if (!currentCustomer) return;
+
+  try {
+    const response = await fetch('/api/customer/addresses');
+
+    if (!response.ok) return;
+
+    const data = await response.json();
+
+    savedAddresses = data.addresses || [];
+
+    renderSavedAddresses();
+
+  } catch (error) {
+    console.error('Erro ao carregar endereços:', error);
+  }
+}
 
 
-function montarEnderecoFinal() {
+function renderSavedAddresses() {
+  const box = document.getElementById('savedAddressesBox');
+  const list = document.getElementById('savedAddressesList');
+  const newAddressBox = document.getElementById('newAddressBox');
+
+  if (!box || !list || !newAddressBox) return;
+
+  if (!savedAddresses.length) {
+    box.style.display = 'none';
+    newAddressBox.style.display = 'grid';
+    selectedSavedAddress = null;
+    return;
+  }
+
+  box.style.display = 'grid';
+
+  if (!selectedSavedAddress) {
+    selectedSavedAddress =
+      savedAddresses.find(a => a.is_default) ||
+      savedAddresses[0];
+  }
+
+  newAddressBox.style.display = 'none';
+
+  list.innerHTML = savedAddresses.map(address => `
+    <div class="saved-address-card ${selectedSavedAddress?.id === address.id ? 'selected' : ''}">
+      <button
+        type="button"
+        class="saved-address-main"
+        onclick="selectSavedAddress(${address.id})"
+      >
+        <div class="saved-address-icon">📍</div>
+
+        <div class="saved-address-content">
+          <strong>${address.label || 'Meu endereço'}</strong>
+          <span>${address.full_address}</span>
+          ${address.is_default ? '<em class="default-address-badge">Padrão</em>' : ''}
+        </div>
+      </button>
+
+      <button
+        type="button"
+        class="delete-address-button"
+        onclick="deleteSavedAddress(${address.id})"
+        title="Apagar endereço"
+      >
+        ×
+      </button>
+    </div>
+  `).join('');
+}
+
+
+function selectSavedAddress(id) {
+  selectedSavedAddress = savedAddresses.find(a => Number(a.id) === Number(id)) || null;
+  renderSavedAddresses();
+}
+
+function backToSavedAddresses() {
+  selectedAddress = null;
+
+  const newAddressBox = document.getElementById('newAddressBox');
+
+  if (newAddressBox) {
+    newAddressBox.style.display = 'none';
+  }
+
+  renderSavedAddresses();
+}
+
+
+async function deleteSavedAddress(id) {
+  const confirmDelete = confirm('Deseja apagar este endereço salvo?');
+
+  if (!confirmDelete) return;
+
+  try {
+    const response = await fetch(`/api/customer/addresses/${id}`, {
+      method: 'DELETE'
+    });
+
+    const data = await response.json();
+
+    if (!response.ok || !data.ok) {
+      alert(data.error || 'Erro ao apagar endereço.');
+      return;
+    }
+
+    savedAddresses = savedAddresses.filter(address => Number(address.id) !== Number(id));
+
+    if (selectedSavedAddress?.id === id) {
+      selectedSavedAddress =
+        savedAddresses.find(address => address.is_default) ||
+        savedAddresses[0] ||
+        null;
+    }
+
+    renderSavedAddresses();
+
+  } catch (error) {
+    alert('Erro ao apagar endereço.');
+    console.error(error);
+  }
+}
+
+function showNewAddressForm() {
+  selectedSavedAddress = null;
+
+  const newAddressBox = document.getElementById('newAddressBox');
+  const savedAddressesBox = document.getElementById('savedAddressesBox');
+  const backButton = document.getElementById('backToSavedAddressesButton');
+
+  if (savedAddressesBox) {
+    savedAddressesBox.style.display = 'none';
+  }
+
+  if (newAddressBox) {
+    newAddressBox.style.display = 'grid';
+  }
+
+  if (backButton) {
+    backButton.style.display = savedAddresses.length ? 'block' : 'none';
+  }
+
+  clearNewAddressForm();
+}
+
+
+function clearNewAddressForm() {
+  selectedAddress = null;
+
   const addressSearch = document.getElementById('addressSearch');
   const addressNumber = document.getElementById('addressNumber');
   const addressComplement = document.getElementById('addressComplement');
   const addressReference = document.getElementById('addressReference');
+  const addressLabel = document.getElementById('addressLabel');
+  const selectedAddressText = document.getElementById('selectedAddressText');
+  const addressDetailsBox = document.getElementById('addressDetailsBox');
+  const addressSuggestions = document.getElementById('addressSuggestions');
 
-  let rua = addressSearch?.value.trim() || '';
+  if (addressSearch) addressSearch.value = '';
+  if (addressNumber) addressNumber.value = '';
+  if (addressComplement) addressComplement.value = '';
+  if (addressReference) addressReference.value = '';
+  if (addressLabel) addressLabel.value = '';
+  if (selectedAddressText) selectedAddressText.textContent = '';
 
-  if (selectedAddress?.address) {
-    const a = selectedAddress.address;
-
-    const logradouro =
-      a.road ||
-      a.pedestrian ||
-      a.residential ||
-      a.street ||
-      rua;
-
-    const bairro =
-      a.suburb ||
-      a.neighbourhood ||
-      a.city_district ||
-      '';
-
-    const cidade =
-      a.city ||
-      a.town ||
-      a.municipality ||
-      'João Pessoa';
-
-    const estado =
-      a.state ||
-      'Paraíba';
-
-    rua = [logradouro, bairro, cidade, estado]
-      .filter(Boolean)
-      .join(', ');
+  if (addressDetailsBox) {
+    addressDetailsBox.style.display = 'none';
   }
 
-  const numero = addressNumber?.value.trim() || '';
-  const complemento = addressComplement?.value.trim() || '';
-  const referencia = addressReference?.value.trim() || '';
+  if (addressSuggestions) {
+    addressSuggestions.classList.remove('open');
+    addressSuggestions.innerHTML = '';
+  }
+}
 
-  let endereco = rua;
 
-  if (numero) endereco += `, Nº ${numero}`;
-  if (complemento) endereco += `, Complemento: ${complemento}`;
-  if (referencia) endereco += `, Referência: ${referencia}`;
+function extrairEnderecoLimpo(endereco) {
+  const a = endereco?.address || {};
+
+  const street =
+    a.road ||
+    a.pedestrian ||
+    a.residential ||
+    a.street ||
+    '';
+
+  const neighborhood =
+    a.suburb ||
+    a.neighbourhood ||
+    a.city_district ||
+    '';
+
+  const city =
+    a.city ||
+    a.town ||
+    a.municipality ||
+    'João Pessoa';
+
+  const state =
+    a.state ||
+    'PB';
+
+  const cleanText = [street, neighborhood, city, state]
+    .filter(Boolean)
+    .join(', ');
+
+  return {
+    street,
+    neighborhood,
+    city,
+    state,
+    cleanText,
+    latitude: endereco?.lat ? Number(endereco.lat) : null,
+    longitude: endereco?.lon ? Number(endereco.lon) : null
+  };
+}
+
+
+function montarEnderecoFinal() {
+  if (selectedSavedAddress) {
+    return selectedSavedAddress.full_address;
+  }
+
+  if (!selectedAddress) {
+    return '';
+  }
+
+  const clean = extrairEnderecoLimpo(selectedAddress);
+
+  const number = document.getElementById('addressNumber')?.value.trim() || '';
+  const complement = document.getElementById('addressComplement')?.value.trim() || '';
+  const reference = document.getElementById('addressReference')?.value.trim() || '';
+
+  let endereco = clean.cleanText;
+
+  if (number) endereco += `, Nº ${number}`;
+  if (complement) endereco += `, Complemento: ${complement}`;
+  if (reference) endereco += `, Referência: ${reference}`;
 
   return endereco;
 }
+
+
+async function saveCurrentAddressIfNeeded(fullAddress) {
+  const saveCheckbox = document.getElementById('saveAddressCheckbox');
+
+  if (!currentCustomer) return;
+  if (selectedSavedAddress) return;
+  if (!selectedAddress) return;
+  if (!saveCheckbox?.checked) return;
+
+  const clean = extrairEnderecoLimpo(selectedAddress);
+
+  const number = document.getElementById('addressNumber')?.value.trim() || '';
+  const complement = document.getElementById('addressComplement')?.value.trim() || '';
+  const reference = document.getElementById('addressReference')?.value.trim() || '';
+  const label = document.getElementById('addressLabel')?.value.trim() || 'Meu endereço';
+
+  const response = await fetch('/api/customer/addresses', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({
+      label,
+      street: clean.street,
+      neighborhood: clean.neighborhood,
+      city: clean.city,
+      state: clean.state,
+      number,
+      complement,
+      reference,
+      full_address: fullAddress,
+      latitude: clean.latitude,
+      longitude: clean.longitude
+    })
+  });
+
+  const data = await response.json();
+
+  if (!response.ok || !data.ok) {
+    throw new Error(data.error || 'Erro ao salvar endereço.');
+  }
+
+  savedAddresses.unshift(data.address);
+  selectedSavedAddress = data.address;
+  renderSavedAddresses();
+}
+
 
 async function buscarEnderecos(query) {
   const box = document.getElementById('addressSuggestions');
@@ -282,43 +523,16 @@ async function buscarEnderecos(query) {
     }
 
     box.innerHTML = data.map((item, index) => {
-      const a = item.address || {};
-
-      const logradouro =
-        a.road ||
-        a.pedestrian ||
-        a.residential ||
-        a.street ||
-        '';
-
-      const bairro =
-        a.suburb ||
-        a.neighbourhood ||
-        a.city_district ||
-        '';
-
-      const cidade =
-        a.city ||
-        a.town ||
-        a.municipality ||
-        'João Pessoa';
-
-      const estado =
-        a.state ||
-        'Paraíba';
-
-      const textoLimpo = [logradouro, bairro, cidade, estado]
-        .filter(Boolean)
-        .join(', ');
+      const clean = extrairEnderecoLimpo(item);
 
       return `
-    <div
-      class="address-suggestion"
-      onclick="selecionarEndereco(${index})"
-    >
-      ${textoLimpo || item.display_name}
-    </div>
-  `;
+        <div
+          class="address-suggestion"
+          onclick="selecionarEndereco(${index})"
+        >
+          ${clean.cleanText || item.display_name}
+        </div>
+      `;
     }).join('');
 
     box.classList.add('open');
@@ -343,40 +557,26 @@ function selecionarEndereco(index) {
   if (!endereco) return;
 
   selectedAddress = endereco;
+  selectedSavedAddress = null;
+
+  const clean = extrairEnderecoLimpo(endereco);
 
   const addressSearch = document.getElementById('addressSearch');
   const box = document.getElementById('addressSuggestions');
   const numberInput = document.getElementById('addressNumber');
+  const addressDetailsBox = document.getElementById('addressDetailsBox');
+  const selectedAddressText = document.getElementById('selectedAddressText');
 
   if (addressSearch) {
-    const a = endereco.address || {};
+    addressSearch.value = clean.cleanText;
+  }
 
-const logradouro =
-  a.road ||
-  a.pedestrian ||
-  a.residential ||
-  a.street ||
-  endereco.display_name;
+  if (selectedAddressText) {
+    selectedAddressText.textContent = clean.cleanText;
+  }
 
-const bairro =
-  a.suburb ||
-  a.neighbourhood ||
-  a.city_district ||
-  '';
-
-const cidade =
-  a.city ||
-  a.town ||
-  a.municipality ||
-  'João Pessoa';
-
-const estado =
-  a.state ||
-  'Paraíba';
-
-addressSearch.value = [logradouro, bairro, cidade, estado]
-  .filter(Boolean)
-  .join(', ');
+  if (addressDetailsBox) {
+    addressDetailsBox.style.display = 'grid';
   }
 
   if (box) {
@@ -388,7 +588,6 @@ addressSearch.value = [logradouro, bairro, cidade, estado]
     numberInput.focus();
   }
 }
-
 
 async function sendOrder(event) {
   event.preventDefault();
@@ -409,10 +608,25 @@ async function sendOrder(event) {
     return;
   }
 
+
+
+
+
   const name = currentCustomer.name;
+
+  if (!selectedSavedAddress && !selectedAddress) {
+    alert('Selecione um endereço da lista antes de finalizar.');
+    return;
+  }
+
   const address = montarEnderecoFinal();
   const payment = document.getElementById('paymentMethod').value;
   const note = document.getElementById('orderNote').value.trim();
+
+
+
+
+
 
   if (!address || address.length < 8) {
     alert('Informe um endereço válido.');
@@ -420,7 +634,8 @@ async function sendOrder(event) {
   }
 
   try {
-    // 🔹 SALVAR NO BANCO
+    await saveCurrentAddressIfNeeded(address);
+
     const response = await fetch('/api/orders', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -509,7 +724,8 @@ if (addressSearchInput) {
     }, 500);
   });
 }
-
+document.getElementById('newAddressButton')?.addEventListener('click', showNewAddressForm);
+document.getElementById('backToSavedAddressesButton')?.addEventListener('click', backToSavedAddresses);
 
 loadData().catch(() => {
   document.getElementById('products').innerHTML = '<p>Não foi possível carregar o cardápio.</p>';
