@@ -1578,3 +1578,118 @@ nav .menu a.login-client:hover {
     white-space: nowrap;
   }
 }
+/* ================= FOOTER INSTITUCIONAL ================= */
+
+.site-footer {
+  background: var(--chocolate);
+  color: #fff;
+  padding: 42px 6% 22px;
+  text-align: left;
+}
+
+.footer-content {
+  max-width: 1180px;
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: 1.1fr 1fr 1.4fr 1fr;
+  gap: 28px;
+}
+
+.footer-brand strong {
+  display: block;
+  font-size: 24px;
+  color: #fff;
+  margin-bottom: 10px;
+}
+
+.footer-brand p,
+.footer-section p,
+.footer-section a {
+  color: #f3d8ca;
+  font-size: 14px;
+  line-height: 1.55;
+}
+
+.footer-section h4 {
+  font-size: 14px;
+  color: var(--gold);
+  margin-bottom: 10px;
+  text-transform: uppercase;
+  letter-spacing: .5px;
+}
+
+.footer-section a {
+  display: block;
+  text-decoration: none;
+  margin-bottom: 7px;
+}
+
+.footer-section a:hover {
+  color: #fff;
+  text-decoration: underline;
+}
+
+.footer-bottom {
+  max-width: 1180px;
+  margin: 28px auto 0;
+  padding-top: 18px;
+  border-top: 1px solid rgba(255,255,255,.12);
+  color: #d8bdb4;
+  font-size: 13px;
+  text-align: center;
+}
+
+@media (max-width: 760px) {
+  .footer-content {
+    grid-template-columns: 1fr;
+    gap: 22px;
+  }
+
+  .site-footer {
+    padding: 34px 6% 20px;
+  }
+}
+
+/* ================= PÁGINAS LEGAIS ================= */
+
+.legal-page {
+  width: 90%;
+  max-width: 900px;
+  margin: 50px auto;
+}
+
+.legal-card {
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: 28px;
+  padding: 36px;
+  box-shadow: 0 18px 50px var(--shadow);
+}
+
+.legal-card h1 {
+  color: var(--wine);
+  margin-bottom: 10px;
+}
+
+.legal-card h2 {
+  color: var(--chocolate);
+  margin-top: 26px;
+  margin-bottom: 8px;
+  font-size: 21px;
+}
+
+.legal-card p {
+  color: var(--muted);
+  line-height: 1.6;
+  margin-bottom: 12px;
+}
+
+@media (max-width: 570px) {
+  .legal-card {
+    padding: 24px;
+  }
+
+  .legal-card h1 {
+    font-size: 26px;
+  }
+}

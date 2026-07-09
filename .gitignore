@@ -2,3 +2,4 @@ node_modules/
 data/database.sqlite
 data/database.json
 .env
+zerar_pedidos.js
