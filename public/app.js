@@ -9,6 +9,9 @@ let selectedAddress = null;
 let addressTimer = null;
 let savedAddresses = [];
 let selectedSavedAddress = null;
+let customizationProduct = null;
+let customizationQuantity = 1;
+let editingCartItemKey = null;
 const money = value => Number(value || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 
 async function loadData() {
@@ -77,48 +80,549 @@ function addToCart(id) {
     alert('No momento a loja está fechada para pedidos.');
     return;
   }
-  const product = products.find(p => p.id === id);
+
+  const product = products.find(p => Number(p.id) === Number(id));
+
   if (!product) return;
-  const item = cart.find(i => i.id === id);
-  if (item) item.quantity += 1;
-  else cart.push({ ...product, quantity: 1 });
-  renderCart();
-  document.getElementById('cart').classList.add('open');
-}
 
-function changeQty(id, delta) {
-  const item = cart.find(i => i.id === id);
-  if (!item) return;
-  item.quantity += delta;
-  if (item.quantity <= 0) cart = cart.filter(i => i.id !== id);
-  renderCart();
-}
+  const optionGroups = product.option_groups || [];
 
-function renderCart() {
-  const cartItems = document.getElementById('cartItems');
-  const count = cart.reduce((sum, item) => sum + item.quantity, 0);
-  const total = cart.reduce((sum, item) => sum + item.quantity * Number(item.price), 0);
-  document.getElementById('cartCount').textContent = count;
-  document.getElementById('cartTotal').textContent = money(total);
-
-  if (!cart.length) {
-    cartItems.innerHTML = '<p>Sua sacola está vazia.</p>';
+  // Produto sem personalização: adiciona diretamente
+  if (!optionGroups.length) {
+    addSimpleProductToCart(product);
     return;
   }
 
-  cartItems.innerHTML = cart.map(item => `
-    <div class="cart-item">
-      <div>
-        <strong>${item.name}</strong><br>
-        <small>${item.quantity} x ${money(item.price)}</small>
+  // Produto com opções: abre o modal
+  openProductCustomization(product);
+}
+
+
+function addSimpleProductToCart(product) {
+  const item = cart.find(item =>
+    Number(item.id) === Number(product.id) &&
+    (!item.selected_options || !item.selected_options.length) &&
+    !item.item_note
+  );
+
+  if (item) {
+    item.quantity += 1;
+  } else {
+    cart.push({
+      ...product,
+      cart_key: createCartKey(),
+      quantity: 1,
+      unit_price: Number(product.price),
+      selected_options: [],
+      item_note: ''
+    });
+  }
+
+  renderCart();
+
+  document.getElementById('cart').classList.add('open');
+}
+
+
+function createCartKey() {
+  return `cart_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
+}
+
+
+function openProductCustomization(product, cartItem = null) {
+  customizationProduct = product;
+  customizationQuantity = cartItem?.quantity || 1;
+  editingCartItemKey = cartItem?.cart_key || null;
+
+  const modal = document.getElementById('productCustomization');
+  const category = document.getElementById('customizationCategory');
+  const name = document.getElementById('customizationProductName');
+  const description = document.getElementById('customizationDescription');
+  const groupsContainer = document.getElementById('customizationOptionGroups');
+  const note = document.getElementById('customizationNote');
+
+  category.textContent = product.category_name || 'Produto';
+  name.textContent = product.name;
+  description.textContent =
+    product.description ||
+    'Produto preparado com qualidade e carinho.';
+
+  note.value = cartItem?.item_note || '';
+
+  groupsContainer.innerHTML = (product.option_groups || []).map(group => {
+    const inputType =
+      Number(group.max_selections) === 1
+        ? 'radio'
+        : 'checkbox';
+
+    const selectedIds = cartItem?.selected_options
+      ?.filter(option => Number(option.group_id) === Number(group.id))
+      .map(option => Number(option.id)) || [];
+
+    const requirementText = group.required
+      ? Number(group.max_selections) === 1
+        ? 'Obrigatório • Escolha 1 opção'
+        : `Obrigatório • Escolha de ${group.min_selections} até ${group.max_selections}`
+      : Number(group.max_selections) === 1
+        ? 'Opcional • Escolha até 1 opção'
+        : `Opcional • Escolha até ${group.max_selections}`;
+
+    return `
+      <div
+        class="option-group"
+        data-group-id="${group.id}"
+        data-required="${group.required}"
+        data-min="${group.min_selections}"
+        data-max="${group.max_selections}"
+      >
+
+        <div class="option-group-header">
+          <strong>${group.name}</strong>
+          <span>${requirementText}</span>
+        </div>
+
+        ${group.options.map(option => {
+      const checked = selectedIds.includes(Number(option.id))
+        ? 'checked'
+        : '';
+
+      return `
+            <label class="option-row">
+              <input
+                type="${inputType}"
+                name="option_group_${group.id}"
+                value="${option.id}"
+                data-group-id="${group.id}"
+                data-option-name="${escapeHtmlAttribute(option.name)}"
+                data-price="${Number(option.price_adjustment || 0)}"
+                ${checked}
+                onchange="handleCustomizationOptionChange(this)"
+              >
+
+              <strong>${option.name}</strong>
+
+              ${Number(option.price_adjustment) > 0
+          ? `<span>+ ${money(option.price_adjustment)}</span>`
+          : ''
+        }
+            </label>
+          `;
+    }).join('')}
+
       </div>
-      <div class="cart-actions">
-        <button onclick="changeQty(${item.id}, -1)">-</button>
-        <strong>${item.quantity}</strong>
-        <button onclick="changeQty(${item.id}, 1)">+</button>
-      </div>
-    </div>
-  `).join('');
+    `;
+  }).join('');
+
+  updateCustomizationPrice();
+
+  modal.classList.add('open');
+  document.body.style.overflow = 'hidden';
+}
+
+
+function closeProductCustomization() {
+  const modal = document.getElementById('productCustomization');
+
+  modal.classList.remove('open');
+
+  document.body.style.overflow = '';
+
+  customizationProduct = null;
+  customizationQuantity = 1;
+  editingCartItemKey = null;
+}
+
+
+function escapeHtmlAttribute(value) {
+  return String(value || '')
+    .replace(/&/g, '&amp;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+}
+
+
+function changeCustomizationQuantity(delta) {
+  customizationQuantity += delta;
+
+  if (customizationQuantity < 1) {
+    customizationQuantity = 1;
+  }
+
+  document.getElementById('customizationQuantity').textContent =
+    customizationQuantity;
+
+  updateCustomizationPrice();
+}
+
+
+function handleCustomizationOptionChange(input) {
+  const groupElement = input.closest('.option-group');
+
+  if (!groupElement) return;
+
+  const maxSelections =
+    Number(groupElement.dataset.max || 1);
+
+  if (input.type === 'checkbox') {
+    const checkedInputs =
+      groupElement.querySelectorAll('input:checked');
+
+    if (checkedInputs.length > maxSelections) {
+      input.checked = false;
+
+      alert(
+        `Você pode escolher no máximo ${maxSelections} opção(ões) neste grupo.`
+      );
+
+      return;
+    }
+  }
+
+  updateCustomizationPrice();
+}
+
+
+function getSelectedCustomizationOptions() {
+  const selectedInputs =
+    document.querySelectorAll(
+      '#customizationOptionGroups input:checked'
+    );
+
+  return Array.from(selectedInputs).map(input => ({
+    id: Number(input.value),
+    group_id: Number(input.dataset.groupId),
+    name: input.dataset.optionName,
+    price_adjustment: Number(input.dataset.price || 0)
+  }));
+}
+
+
+function validateCustomization() {
+  const groups =
+    document.querySelectorAll(
+      '#customizationOptionGroups .option-group'
+    );
+
+  for (const group of groups) {
+    const required =
+      group.dataset.required === 'true';
+
+    const min =
+      Number(group.dataset.min || 0);
+
+    const max =
+      Number(group.dataset.max || 1);
+
+    const selected =
+      group.querySelectorAll('input:checked').length;
+
+    const groupTitle =
+      group.querySelector('.option-group-header strong')
+        ?.textContent || 'Opção';
+
+    if (required && selected < min) {
+      alert(`Selecione uma opção em "${groupTitle}".`);
+      return false;
+    }
+
+    if (selected > max) {
+      alert(
+        `Selecione no máximo ${max} opção(ões) em "${groupTitle}".`
+      );
+
+      return false;
+    }
+  }
+
+  return true;
+}
+
+
+function calculateCustomizedUnitPrice() {
+  if (!customizationProduct) return 0;
+
+  const basePrice =
+    Number(customizationProduct.price || 0);
+
+  const optionsTotal =
+    getSelectedCustomizationOptions()
+      .reduce(
+        (sum, option) =>
+          sum + Number(option.price_adjustment || 0),
+        0
+      );
+
+  return basePrice + optionsTotal;
+}
+
+
+function updateCustomizationPrice() {
+  if (!customizationProduct) return;
+
+  const unitPrice =
+    calculateCustomizedUnitPrice();
+
+  const total =
+    unitPrice * customizationQuantity;
+
+  document.getElementById(
+    'customizationQuantity'
+  ).textContent = customizationQuantity;
+
+  document.getElementById(
+    'customizationAddButton'
+  ).textContent =
+    `${editingCartItemKey ? 'Salvar alterações' : 'Adicionar'} • ${money(total)}`;
+}
+
+
+function confirmCustomizedProduct() {
+  if (!customizationProduct) return;
+
+  if (!validateCustomization()) return;
+
+  const selectedOptions =
+    getSelectedCustomizationOptions();
+
+  const itemNote =
+    document
+      .getElementById('customizationNote')
+      .value
+      .trim();
+
+  const unitPrice =
+    calculateCustomizedUnitPrice();
+
+  const cartItem = {
+    ...customizationProduct,
+
+    cart_key:
+      editingCartItemKey ||
+      createCartKey(),
+
+    quantity:
+      customizationQuantity,
+
+    unit_price:
+      unitPrice,
+
+    price:
+      unitPrice,
+
+    selected_options:
+      selectedOptions,
+
+    item_note:
+      itemNote
+  };
+
+  if (editingCartItemKey) {
+    const index =
+      cart.findIndex(
+        item => item.cart_key === editingCartItemKey
+      );
+
+    if (index !== -1) {
+      cart[index] = cartItem;
+    }
+
+  } else {
+    cart.push(cartItem);
+  }
+
+  closeProductCustomization();
+
+  renderCart();
+
+  document
+    .getElementById('cart')
+    .classList
+    .add('open');
+}
+
+function changeQty(cartKey, delta) {
+  const item = cart.find(
+    item => item.cart_key === cartKey
+  );
+
+  if (!item) return;
+
+  item.quantity += delta;
+
+  if (item.quantity <= 0) {
+    cart = cart.filter(
+      item => item.cart_key !== cartKey
+    );
+  }
+
+  renderCart();
+}
+
+
+function removeCartItem(cartKey) {
+  cart = cart.filter(
+    item => item.cart_key !== cartKey
+  );
+
+  renderCart();
+}
+
+
+function editCartItem(cartKey) {
+  const item = cart.find(
+    item => item.cart_key === cartKey
+  );
+
+  if (!item) return;
+
+  const product = products.find(
+    product =>
+      Number(product.id) === Number(item.id)
+  );
+
+  if (!product) return;
+
+  document
+    .getElementById('cart')
+    .classList
+    .remove('open');
+
+  openProductCustomization(product, item);
+}
+
+function renderCart() {
+  const cartItems =
+    document.getElementById('cartItems');
+
+  const count = cart.reduce(
+    (sum, item) =>
+      sum + item.quantity,
+    0
+  );
+
+  const total = cart.reduce(
+    (sum, item) =>
+      sum +
+      item.quantity *
+      Number(item.unit_price ?? item.price),
+    0
+  );
+
+  document
+    .getElementById('cartCount')
+    .textContent = count;
+
+  document
+    .getElementById('cartTotal')
+    .textContent = money(total);
+
+  if (!cart.length) {
+    cartItems.innerHTML =
+      '<p>Sua sacola está vazia.</p>';
+
+    return;
+  }
+
+  cartItems.innerHTML =
+    cart.map(item => {
+
+      const optionsHtml =
+        (item.selected_options || []).length
+          ? `
+            <div class="cart-item-options">
+              ${item.selected_options
+            .map(option => `
+                  <span>
+                    ${option.name}
+                    ${Number(option.price_adjustment) > 0
+                ? ` (+${money(option.price_adjustment)})`
+                : ''
+              }
+                  </span>
+                `)
+            .join('')}
+            </div>
+          `
+          : '';
+
+      const noteHtml =
+        item.item_note
+          ? `
+            <div class="cart-item-note">
+              Obs.: ${item.item_note}
+            </div>
+          `
+          : '';
+
+      const canEdit =
+        (item.option_groups || []).length > 0;
+
+      return `
+        <div class="cart-item">
+
+          <div class="cart-item-info">
+
+            <strong>${item.name}</strong>
+
+            ${optionsHtml}
+
+            ${noteHtml}
+
+            <small>
+              ${item.quantity} x
+              ${money(item.unit_price ?? item.price)}
+            </small>
+
+            <div class="cart-item-links">
+
+              ${canEdit
+          ? `
+                    <button
+                      type="button"
+                      onclick="editCartItem('${item.cart_key}')"
+                    >
+                      Editar
+                    </button>
+                  `
+          : ''
+        }
+
+              <button
+                type="button"
+                onclick="removeCartItem('${item.cart_key}')"
+              >
+                Remover
+              </button>
+
+            </div>
+
+          </div>
+
+          <div class="cart-actions">
+
+            <button
+              onclick="changeQty('${item.cart_key}', -1)"
+            >
+              -
+            </button>
+
+            <strong>
+              ${item.quantity}
+            </strong>
+
+            <button
+              onclick="changeQty('${item.cart_key}', 1)"
+            >
+              +
+            </button>
+
+          </div>
+
+        </div>
+      `;
+    }).join('');
 }
 
 
@@ -649,7 +1153,21 @@ async function sendOrder(event) {
           id: item.id,
           name: item.name,
           quantity: item.quantity,
-          price: item.price
+
+          price: Number(item.price || 0),
+
+          unit_price: Number(
+            item.unit_price ?? item.price ?? 0
+          ),
+
+          selected_options: (item.selected_options || []).map(option => ({
+            id: option.id,
+            group_id: option.group_id,
+            name: option.name,
+            price_adjustment: Number(option.price_adjustment || 0)
+          })),
+
+          item_note: item.item_note || ''
         }))
       })
     });
@@ -686,17 +1204,56 @@ function gerarMensagem(cart, orderId, name, address, payment, note) {
   let total = 0;
 
   cart.forEach(item => {
-    const subtotal = item.quantity * item.price;
+    const unitPrice = Number(item.unit_price ?? item.price ?? 0);
+    const subtotal = item.quantity * unitPrice;
+
     total += subtotal;
 
-    msg += `• ${item.quantity}x ${item.name} - R$ ${subtotal.toFixed(2).replace('.', ',')}\n`;
+    msg += `• ${item.quantity}x ${item.name}\n`;
+
+    // ================= OPÇÕES ESCOLHIDAS =================
+
+    if (item.selected_options && item.selected_options.length) {
+      item.selected_options.forEach(option => {
+        msg += `  ↳ ${option.name}`;
+
+        if (Number(option.price_adjustment || 0) > 0) {
+          msg += ` (+ R$ ${Number(option.price_adjustment)
+            .toFixed(2)
+            .replace('.', ',')})`;
+        }
+
+        msg += '\n';
+      });
+    }
+
+    // ================= OBSERVAÇÃO DO ITEM =================
+
+    if (item.item_note) {
+      msg += `  ↳ Obs.: ${item.item_note}\n`;
+    }
+
+    // ================= PREÇO DO ITEM =================
+
+    msg += `  ↳ Subtotal: R$ ${subtotal
+      .toFixed(2)
+      .replace('.', ',')}\n`;
+
+    msg += '\n';
   });
 
-  msg += `\nTotal: R$ ${total.toFixed(2).replace('.', ',')}\n\n`;
+  // ================= TOTAL =================
+
+  msg += `Total: R$ ${total
+    .toFixed(2)
+    .replace('.', ',')}\n\n`;
+
+  // ================= DADOS DO CLIENTE =================
+
   msg += `Nome: ${name}\n`;
   msg += `Endereço/Retirada: ${address}\n`;
   msg += `Pagamento: ${payment}\n`;
-  msg += `Observação: ${note || 'Nenhuma'}\n`;
+  msg += `Observação do pedido: ${note || 'Nenhuma'}\n`;
 
   return msg;
 }

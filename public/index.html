@@ -254,6 +254,70 @@
     </div>
   </aside>
 
+
+  <!-- ================= PERSONALIZAÇÃO DO PRODUTO ================= -->
+
+  <div class="product-customization" id="productCustomization">
+    <div class="product-customization-overlay" onclick="closeProductCustomization()"></div>
+
+    <div class="product-customization-panel">
+
+      <div class="customization-header">
+        <div>
+          <span class="customization-category" id="customizationCategory"></span>
+          <h2 id="customizationProductName"></h2>
+        </div>
+
+        <button type="button" class="customization-close" onclick="closeProductCustomization()" aria-label="Fechar">
+          ×
+        </button>
+      </div>
+
+      <div class="customization-content">
+
+        <p class="customization-description" id="customizationDescription"></p>
+
+        <div id="customizationOptionGroups"></div>
+
+        <div class="customization-note-box">
+          <label for="customizationNote">
+            Alguma observação?
+          </label>
+
+          <span>
+            Opcional
+          </span>
+
+          <textarea id="customizationNote" maxlength="200" placeholder="Ex.: sem amendoim, se possível"></textarea>
+        </div>
+
+      </div>
+
+      <div class="customization-footer">
+
+        <div class="customization-quantity">
+
+          <button type="button" onclick="changeCustomizationQuantity(-1)">
+            −
+          </button>
+
+          <strong id="customizationQuantity">1</strong>
+
+          <button type="button" onclick="changeCustomizationQuantity(1)">
+            +
+          </button>
+
+        </div>
+
+        <button type="button" class="customization-add-button" id="customizationAddButton"
+          onclick="confirmCustomizedProduct()">
+          Adicionar • R$ 0,00
+        </button>
+
+      </div>
+
+    </div>
+  </div>
   <script src="app.js"></script>
   <script>
     const openCartHero = document.getElementById('openCartHero');

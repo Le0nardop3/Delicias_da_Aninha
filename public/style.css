@@ -1693,3 +1693,214 @@ nav .menu a.login-client:hover {
     font-size: 26px;
   }
 }
+
+/* ================= MODAL DE PERSONALIZAÇÃO ================= */
+
+.product-customization {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  display: none;
+}
+
+.product-customization.open {
+  display: block;
+}
+
+.product-customization-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(20, 9, 2, .58);
+}
+
+.product-customization-panel {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: min(520px, 92%);
+  max-height: 88vh;
+  transform: translate(-50%, -50%);
+  background: #fff;
+  border-radius: 28px;
+  box-shadow: 0 24px 80px rgba(20, 9, 2, .25);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.customization-header {
+  padding: 22px;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.customization-category {
+  color: var(--wine);
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.customization-header h2 {
+  font-size: 24px;
+  color: var(--chocolate);
+  margin-top: 4px;
+}
+
+.customization-close {
+  border: 0;
+  background: #f6e6eb;
+  color: var(--wine-dark);
+  font-size: 28px;
+  width: 42px;
+  height: 42px;
+  border-radius: 12px;
+  cursor: pointer;
+}
+
+.customization-content {
+  padding: 20px 22px;
+  overflow-y: auto;
+}
+
+.customization-description {
+  color: var(--muted);
+  line-height: 1.5;
+  margin-bottom: 18px;
+}
+
+.option-group {
+  margin-bottom: 20px;
+}
+
+.option-group-header {
+  margin-bottom: 10px;
+}
+
+.option-group-header strong {
+  display: block;
+  color: var(--chocolate);
+  font-size: 16px;
+}
+
+.option-group-header span {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.option-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 13px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  margin-bottom: 8px;
+  cursor: pointer;
+}
+
+.option-row input {
+  width: 17px;
+  height: 17px;
+  accent-color: var(--wine);
+}
+
+.option-row strong {
+  flex: 1;
+  color: var(--brown);
+  font-size: 14px;
+}
+
+.option-row span {
+  color: var(--wine);
+  font-size: 13px;
+  font-weight: 900;
+}
+
+.customization-note-box {
+  display: grid;
+  gap: 8px;
+}
+
+.customization-note-box label {
+  color: var(--chocolate);
+  font-weight: 900;
+  font-size: 14px;
+}
+
+.customization-note-box span {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.customization-note-box textarea {
+  width: 100%;
+  min-height: 80px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 13px;
+  resize: none;
+  font-size: 14px;
+}
+
+.customization-footer {
+  padding: 16px 22px;
+  border-top: 1px solid var(--border);
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 12px;
+  background: #fff;
+}
+
+.customization-quantity {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.customization-quantity button {
+  border: 0;
+  background: var(--wine);
+  color: #fff;
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  font-size: 20px;
+  cursor: pointer;
+}
+
+.customization-add-button {
+  border: 0;
+  background: linear-gradient(135deg, var(--wine), var(--blue));
+  color: #fff;
+  border-radius: 14px;
+  font-weight: 900;
+  cursor: pointer;
+  padding: 13px;
+}
+
+@media (max-width: 570px) {
+  .product-customization-panel {
+    left: 0;
+    right: 0;
+    bottom: 0;
+    top: auto;
+    width: 100%;
+    max-height: 88vh;
+    transform: none;
+    border-radius: 26px 26px 0 0;
+  }
+
+  .customization-header h2 {
+    font-size: 21px;
+  }
+
+  .customization-footer {
+    grid-template-columns: 1fr;
+  }
+
+  .customization-quantity {
+    justify-content: center;
+  }
+}

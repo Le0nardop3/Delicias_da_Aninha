@@ -959,20 +959,108 @@ app.get('/api/categories', async (req, res) => {
 // ================= PRODUTOS =================
 
 app.get('/api/products', async (req, res) => {
-  const db = await getDb();
+  try {
+    const db = await getDb();
 
-  const rows = await db.all(`
-    SELECT 
-      p.*,
-      p.image_url AS image,
-      c.name AS category_name
-    FROM products p
-    LEFT JOIN categories c ON c.id = p.category_id
-    WHERE p.active = 1
-    ORDER BY p.featured DESC, p.id DESC
-  `);
+    // ================= BUSCAR PRODUTOS =================
 
-  res.json(rows);
+    const products = await db.all(`
+      SELECT 
+        p.*,
+        p.image_url AS image,
+        c.name AS category_name
+      FROM products p
+      LEFT JOIN categories c ON c.id = p.category_id
+      WHERE p.active = 1
+      ORDER BY p.featured DESC, p.id DESC
+    `);
+
+    // ================= BUSCAR GRUPOS DE OPÇÕES =================
+
+    const optionGroups = await db.all(`
+      SELECT
+        id,
+        product_id,
+        name,
+        required,
+        min_selections,
+        max_selections,
+        sort_order
+      FROM product_option_groups
+      WHERE active = TRUE
+      ORDER BY sort_order ASC, id ASC
+    `);
+
+    // ================= BUSCAR OPÇÕES =================
+
+    const options = await db.all(`
+      SELECT
+        id,
+        group_id,
+        name,
+        price_adjustment,
+        sort_order
+      FROM product_options
+      WHERE active = TRUE
+      ORDER BY sort_order ASC, id ASC
+    `);
+
+    // ================= ORGANIZAR OPÇÕES NOS GRUPOS =================
+
+    const groupsMap = new Map();
+
+    for (const group of optionGroups) {
+      groupsMap.set(group.id, {
+        ...group,
+        required: Boolean(group.required),
+        min_selections: Number(group.min_selections || 0),
+        max_selections: Number(group.max_selections || 1),
+        options: []
+      });
+    }
+
+    for (const option of options) {
+      const group = groupsMap.get(option.group_id);
+
+      if (!group) continue;
+
+      group.options.push({
+        ...option,
+        price_adjustment: Number(option.price_adjustment || 0)
+      });
+    }
+
+    // ================= ORGANIZAR GRUPOS NOS PRODUTOS =================
+
+    const productGroupsMap = new Map();
+
+    for (const group of groupsMap.values()) {
+      if (!productGroupsMap.has(group.product_id)) {
+        productGroupsMap.set(group.product_id, []);
+      }
+
+      productGroupsMap.get(group.product_id).push(group);
+    }
+
+    // ================= MONTAR RESPOSTA FINAL =================
+
+    const result = products.map(product => ({
+      ...product,
+
+      price: Number(product.price || 0),
+
+      option_groups: productGroupsMap.get(product.id) || []
+    }));
+
+    res.json(result);
+
+  } catch (error) {
+    console.error('Erro ao carregar produtos:', error);
+
+    res.status(500).json({
+      error: 'Erro ao carregar produtos.'
+    });
+  }
 });
 
 // ================= LOGIN =================
@@ -1253,32 +1341,76 @@ app.post('/api/orders', async (req, res) => {
 
     if (!items || items.length === 0) return res.status(400).json({ error: 'Pedido vazio' });
 
+    let customerId = req.session.customerId;
+
     let total = 0;
     const validatedItems = [];
 
     for (const item of items) {
       const quantity = Number(item.quantity || 0);
-      if (quantity <= 0 || quantity > 50) return res.status(400).json({ error: 'Item inválido no pedido.' });
 
-      // No projeto 1 o front ainda envia nome/preço. Mantive compatível,
-      // mas também aceito ID caso venha do cardápio.
-      let name = String(item.name || '').trim();
-      let price = Number(item.price || 0);
-
-      if (item.id) {
-        const product = await db.get(`SELECT id, name, price, active FROM products WHERE id = $1`, [Number(item.id)]);
-        if (!product || !product.active) return res.status(400).json({ error: 'Produto inválido ou indisponível.' });
-        name = product.name;
-        price = Number(product.price || 0);
+      if (quantity <= 0 || quantity > 50) {
+        return res.status(400).json({
+          error: 'Item inválido no pedido.'
+        });
       }
 
-      if (!name || price <= 0) return res.status(400).json({ error: 'Item inválido no pedido.' });
+      let name = String(item.name || '').trim();
+      let basePrice = Number(item.price || 0);
+      let unitPrice = Number(item.unit_price || item.price || 0);
 
-      total += price * quantity;
-      validatedItems.push({ name, price, quantity });
+      const selectedOptions = Array.isArray(item.selected_options)
+        ? item.selected_options.map(option => ({
+          id: Number(option.id || 0),
+          group_id: Number(option.group_id || 0),
+          name: String(option.name || '').trim(),
+          price_adjustment: Number(option.price_adjustment || 0)
+        })).filter(option => option.name)
+        : [];
+
+      const itemNote = String(item.item_note || '').trim();
+
+      if (item.id) {
+        const product = await db.get(`
+      SELECT id, name, price, active
+      FROM products
+      WHERE id = $1
+    `, [Number(item.id)]);
+
+        if (!product || !product.active) {
+          return res.status(400).json({
+            error: 'Produto inválido ou indisponível.'
+          });
+        }
+
+        name = product.name;
+        basePrice = Number(product.price || 0);
+
+        const optionsTotal = selectedOptions.reduce(
+          (sum, option) => sum + Number(option.price_adjustment || 0),
+          0
+        );
+
+        unitPrice = basePrice + optionsTotal;
+      }
+
+      if (!name || unitPrice <= 0) {
+        return res.status(400).json({
+          error: 'Item inválido no pedido.'
+        });
+      }
+
+      total += unitPrice * quantity;
+
+      validatedItems.push({
+        name,
+        price: unitPrice,
+        unit_price: unitPrice,
+        quantity,
+        selected_options: selectedOptions,
+        item_note: itemNote
+      });
     }
-
-    let customerId = req.session?.customerId || null;
     let finalCustomerName = customer_name || '';
     let finalCustomerPhone = customer_phone || '';
 
@@ -1308,9 +1440,25 @@ app.post('/api/orders', async (req, res) => {
 
     for (const item of validatedItems) {
       await db.run(`
-        INSERT INTO order_items (order_id, product_name, quantity, price)
-        VALUES ($1, $2, $3, $4)
-      `, [orderId, item.name, item.quantity, item.price]);
+    INSERT INTO order_items (
+      order_id,
+      product_name,
+      quantity,
+      price,
+      unit_price,
+      selected_options,
+      item_note
+    )
+    VALUES ($1, $2, $3, $4, $5, $6::jsonb, $7)
+  `, [
+        orderId,
+        item.name,
+        item.quantity,
+        item.price,
+        item.unit_price,
+        JSON.stringify(item.selected_options || []),
+        item.item_note || null
+      ]);
     }
 
     res.json({ ok: true, orderId, customerId });
