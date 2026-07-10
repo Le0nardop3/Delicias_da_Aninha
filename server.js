@@ -564,11 +564,18 @@ app.get('/api/customer/orders', requireCustomerAuth, async (req, res) => {
 
     for (const order of orders) {
       order.items = await db.all(`
-        SELECT id, product_name, quantity, price
-        FROM order_items
-        WHERE order_id = $1
-        ORDER BY id ASC
-      `, [order.id]);
+  SELECT
+    id,
+    product_name,
+    quantity,
+    price,
+    unit_price,
+    selected_options,
+    item_note
+  FROM order_items
+  WHERE order_id = $1
+  ORDER BY id ASC
+`, [order.id]);
     }
 
     res.json({ ok: true, orders });
@@ -972,7 +979,7 @@ app.get('/api/products', async (req, res) => {
       FROM products p
       LEFT JOIN categories c ON c.id = p.category_id
       WHERE p.active = 1
-      ORDER BY p.featured DESC, p.id DESC
+      ORDER BY p.featured DESC, p.name ASC
     `);
 
     // ================= BUSCAR GRUPOS DE OPÇÕES =================
@@ -1154,7 +1161,7 @@ app.get('/api/admin/products', requireAuth, async (req, res) => {
       c.name AS category_name
     FROM products p
     LEFT JOIN categories c ON c.id = p.category_id
-    ORDER BY p.id DESC
+    ORDER BY p.name ASC
   `);
 
   res.json(rows);
