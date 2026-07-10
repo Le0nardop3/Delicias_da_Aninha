@@ -556,7 +556,18 @@ app.get('/api/customer/orders', requireCustomerAuth, async (req, res) => {
   try {
     const db = await getDb();
     const orders = await db.all(`
-      SELECT id, customer_name, customer_phone, address, payment, note, total, status, created_at
+      SELECT
+        id,
+        customer_name,
+        customer_phone,
+        address,
+        payment,
+        note,
+        total,
+        status,
+        payment_status,
+        paid_at,
+        created_at
       FROM orders
       WHERE customer_id = $1
       ORDER BY id DESC
@@ -1339,69 +1350,168 @@ app.delete('/api/admin/categories/:id', requireAuth, async (req, res) => {
 app.post('/api/orders', async (req, res) => {
   try {
     const db = await getDb();
+
     if (!req.session?.customerId) {
       return res.status(401).json({
         error: 'Faça login para finalizar o pedido.'
       });
     }
-    const { items, customer_name, customer_phone, address, payment, note } = req.body;
 
-    if (!items || items.length === 0) return res.status(400).json({ error: 'Pedido vazio' });
+    const {
+      items,
+      customer_name,
+      customer_phone,
+      address,
+      payment,
+      note
+    } = req.body;
+
+    if (!Array.isArray(items) || items.length === 0) {
+      return res.status(400).json({
+        error: 'Pedido vazio.'
+      });
+    }
 
     let customerId = req.session.customerId;
-
     let total = 0;
     const validatedItems = [];
 
     for (const item of items) {
+      const productId = Number(item.id || 0);
       const quantity = Number(item.quantity || 0);
 
-      if (quantity <= 0 || quantity > 50) {
+      if (!productId || !Number.isInteger(quantity) || quantity <= 0 || quantity > 50) {
         return res.status(400).json({
           error: 'Item inválido no pedido.'
         });
       }
 
-      let name = String(item.name || '').trim();
-      let basePrice = Number(item.price || 0);
-      let unitPrice = Number(item.unit_price || item.price || 0);
+      const product = await db.get(`
+        SELECT id, name, price, active
+        FROM products
+        WHERE id = $1
+      `, [productId]);
 
-      const selectedOptions = Array.isArray(item.selected_options)
-        ? item.selected_options.map(option => ({
-          id: Number(option.id || 0),
-          group_id: Number(option.group_id || 0),
-          name: String(option.name || '').trim(),
-          price_adjustment: Number(option.price_adjustment || 0)
-        })).filter(option => option.name)
+      if (!product || !product.active) {
+        return res.status(400).json({
+          error: 'Produto inválido ou indisponível.'
+        });
+      }
+
+      const groups = await db.all(`
+        SELECT
+          id,
+          name,
+          required,
+          min_selections,
+          max_selections
+        FROM product_option_groups
+        WHERE product_id = $1
+          AND active = TRUE
+        ORDER BY sort_order ASC, id ASC
+      `, [productId]);
+
+      const requestedOptions = Array.isArray(item.selected_options)
+        ? item.selected_options
         : [];
 
-      const itemNote = String(item.item_note || '').trim();
+      const requestedOptionIds = requestedOptions
+        .map(option => Number(option.id || 0))
+        .filter(id => Number.isInteger(id) && id > 0);
 
-      if (item.id) {
-        const product = await db.get(`
-      SELECT id, name, price, active
-      FROM products
-      WHERE id = $1
-    `, [Number(item.id)]);
+      if (requestedOptionIds.length !== requestedOptions.length) {
+        return res.status(400).json({
+          error: `Há uma opção inválida no produto "${product.name}".`
+        });
+      }
 
-        if (!product || !product.active) {
+      if (new Set(requestedOptionIds).size !== requestedOptionIds.length) {
+        return res.status(400).json({
+          error: `Há opções repetidas no produto "${product.name}".`
+        });
+      }
+
+      let canonicalOptions = [];
+
+      if (requestedOptionIds.length > 0) {
+        const placeholders = requestedOptionIds
+          .map((_, index) => `$${index + 2}`)
+          .join(', ');
+
+        canonicalOptions = await db.all(`
+          SELECT
+            po.id,
+            po.group_id,
+            po.name,
+            po.price_adjustment
+          FROM product_options po
+          INNER JOIN product_option_groups pog
+            ON pog.id = po.group_id
+          WHERE pog.product_id = $1
+            AND pog.active = TRUE
+            AND po.active = TRUE
+            AND po.id IN (${placeholders})
+          ORDER BY pog.sort_order ASC, po.sort_order ASC, po.id ASC
+        `, [productId, ...requestedOptionIds]);
+
+        if (canonicalOptions.length !== requestedOptionIds.length) {
           return res.status(400).json({
-            error: 'Produto inválido ou indisponível.'
+            error: `Uma das opções escolhidas para "${product.name}" não é válida.`
+          });
+        }
+      }
+
+      for (const group of groups) {
+        const selectedCount = canonicalOptions.filter(
+          option => Number(option.group_id) === Number(group.id)
+        ).length;
+
+        const minSelections = Number(group.min_selections || 0);
+        const maxSelections = Number(group.max_selections || 1);
+        const required = Boolean(group.required);
+
+        if (required && selectedCount < Math.max(1, minSelections)) {
+          return res.status(400).json({
+            error: `Selecione uma opção em "${group.name}" para o produto "${product.name}".`
           });
         }
 
-        name = product.name;
-        basePrice = Number(product.price || 0);
+        if (!required && selectedCount < minSelections) {
+          return res.status(400).json({
+            error: `Selecione pelo menos ${minSelections} opção(ões) em "${group.name}".`
+          });
+        }
 
-        const optionsTotal = selectedOptions.reduce(
-          (sum, option) => sum + Number(option.price_adjustment || 0),
-          0
-        );
-
-        unitPrice = basePrice + optionsTotal;
+        if (selectedCount > maxSelections) {
+          return res.status(400).json({
+            error: `Selecione no máximo ${maxSelections} opção(ões) em "${group.name}".`
+          });
+        }
       }
 
-      if (!name || unitPrice <= 0) {
+      if (!groups.length && canonicalOptions.length) {
+        return res.status(400).json({
+          error: `O produto "${product.name}" não possui opções disponíveis.`
+        });
+      }
+
+      const selectedOptions = canonicalOptions.map(option => ({
+        id: Number(option.id),
+        group_id: Number(option.group_id),
+        name: String(option.name || '').trim(),
+        price_adjustment: Number(option.price_adjustment || 0)
+      }));
+
+      const optionsTotal = selectedOptions.reduce(
+        (sum, option) => sum + option.price_adjustment,
+        0
+      );
+
+      const basePrice = Number(product.price || 0);
+      const unitPrice = basePrice + optionsTotal;
+      const itemNote = String(item.item_note || '').trim().slice(0, 200);
+
+      if (!product.name || unitPrice <= 0) {
         return res.status(400).json({
           error: 'Item inválido no pedido.'
         });
@@ -1410,7 +1520,7 @@ app.post('/api/orders', async (req, res) => {
       total += unitPrice * quantity;
 
       validatedItems.push({
-        name,
+        name: product.name,
         price: unitPrice,
         unit_price: unitPrice,
         quantity,
@@ -1418,60 +1528,87 @@ app.post('/api/orders', async (req, res) => {
         item_note: itemNote
       });
     }
-    let finalCustomerName = customer_name || '';
-    let finalCustomerPhone = customer_phone || '';
 
-    if (customerId) {
-      const customer = await db.get(`
-        SELECT id, name, phone
-        FROM customers
-        WHERE id = $1
-          AND is_active = TRUE
-      `, [customerId]);
+    let finalCustomerName = String(customer_name || '').trim();
+    let finalCustomerPhone = String(customer_phone || '').trim();
 
-      if (customer) {
-        finalCustomerName = customer.name || finalCustomerName;
-        finalCustomerPhone = customer.phone || finalCustomerPhone;
-      } else {
-        customerId = null;
-      }
+    const customer = await db.get(`
+      SELECT id, name, phone
+      FROM customers
+      WHERE id = $1
+        AND is_active = TRUE
+    `, [customerId]);
+
+    if (!customer) {
+      req.session.customerId = null;
+
+      return res.status(401).json({
+        error: 'Sua sessão expirou. Entre novamente para finalizar o pedido.'
+      });
     }
 
+    finalCustomerName = customer.name || finalCustomerName;
+    finalCustomerPhone = customer.phone || finalCustomerPhone;
+
     const result = await db.get(`
-      INSERT INTO orders (customer_id, customer_name, customer_phone, address, payment, note, total)
+      INSERT INTO orders (
+        customer_id,
+        customer_name,
+        customer_phone,
+        address,
+        payment,
+        note,
+        total
+      )
       VALUES ($1, $2, $3, $4, $5, $6, $7)
       RETURNING id
-    `, [customerId, finalCustomerName, finalCustomerPhone, address || '', payment || '', note || '', total]);
+    `, [
+      customerId,
+      finalCustomerName,
+      finalCustomerPhone,
+      String(address || '').trim(),
+      String(payment || '').trim(),
+      String(note || '').trim(),
+      total
+    ]);
 
     const orderId = result.id;
 
     for (const item of validatedItems) {
       await db.run(`
-    INSERT INTO order_items (
-      order_id,
-      product_name,
-      quantity,
-      price,
-      unit_price,
-      selected_options,
-      item_note
-    )
-    VALUES ($1, $2, $3, $4, $5, $6::jsonb, $7)
-  `, [
+        INSERT INTO order_items (
+          order_id,
+          product_name,
+          quantity,
+          price,
+          unit_price,
+          selected_options,
+          item_note
+        )
+        VALUES ($1, $2, $3, $4, $5, $6::jsonb, $7)
+      `, [
         orderId,
         item.name,
         item.quantity,
         item.price,
         item.unit_price,
-        JSON.stringify(item.selected_options || []),
+        JSON.stringify(item.selected_options),
         item.item_note || null
       ]);
     }
 
-    res.json({ ok: true, orderId, customerId });
+    res.json({
+      ok: true,
+      orderId,
+      customerId
+    });
+
   } catch (error) {
     console.error('Erro ao salvar pedido:', error);
-    res.status(500).json({ error: 'Erro ao salvar pedido.' });
+
+    res.status(500).json({
+      error: 'Erro ao salvar pedido.'
+    });
   }
 });
 

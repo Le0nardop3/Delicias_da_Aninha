@@ -305,6 +305,51 @@
         flex-direction: column;
       }
     }
+
+    .order-items li {
+      align-items: flex-start;
+    }
+
+    .account-order-item-main {
+      min-width: 0;
+      flex: 1;
+      display: grid;
+      gap: 5px;
+    }
+
+    .account-order-options {
+      display: grid;
+      gap: 3px;
+      padding-left: 8px;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .account-order-note {
+      background: #fff7ed;
+      border-left: 3px solid #f59e0b;
+      border-radius: 7px;
+      padding: 7px 9px;
+      color: #7c2d12;
+      font-size: 12px;
+      line-height: 1.4;
+    }
+
+    .account-order-subtotal {
+      white-space: nowrap;
+      color: var(--wine-dark);
+    }
+
+    @media(max-width: 570px) {
+      .order-items li {
+        flex-direction: column;
+      }
+
+      .account-order-subtotal {
+        align-self: flex-end;
+      }
+    }
+
   </style>
 </head>
 <body>
@@ -381,6 +426,72 @@
         style: 'currency',
         currency: 'BRL'
       });
+    }
+
+
+    function escapeHtml(value) {
+      return String(value ?? '')
+        .replaceAll('&', '&amp;')
+        .replaceAll('<', '&lt;')
+        .replaceAll('>', '&gt;')
+        .replaceAll('"', '&quot;')
+        .replaceAll("'", '&#039;');
+    }
+
+    function parseSelectedOptions(value) {
+      if (Array.isArray(value)) return value;
+
+      if (typeof value === 'string' && value.trim()) {
+        try {
+          const parsed = JSON.parse(value);
+          return Array.isArray(parsed) ? parsed : [];
+        } catch {
+          return [];
+        }
+      }
+
+      return [];
+    }
+
+    function renderAccountOrderItem(item) {
+      const options = parseSelectedOptions(item.selected_options);
+      const unitPrice = Number(item.unit_price ?? item.price ?? 0);
+      const subtotal = Number(item.quantity || 0) * unitPrice;
+
+      const optionsHtml = options.length
+        ? `
+          <div class="account-order-options">
+            ${options.map(option => `
+              <span>
+                ↳ ${escapeHtml(option.name)}
+                ${Number(option.price_adjustment || 0) > 0
+                  ? ` (+${formatMoney(option.price_adjustment)})`
+                  : ''}
+              </span>
+            `).join('')}
+          </div>
+        `
+        : '';
+
+      const noteHtml = item.item_note
+        ? `
+          <div class="account-order-note">
+            <strong>Obs. do item:</strong> ${escapeHtml(item.item_note)}
+          </div>
+        `
+        : '';
+
+      return `
+        <li>
+          <div class="account-order-item-main">
+            <strong>${Number(item.quantity || 0)}x ${escapeHtml(item.product_name)}</strong>
+            ${optionsHtml}
+            ${noteHtml}
+          </div>
+
+          <strong class="account-order-subtotal">${formatMoney(subtotal)}</strong>
+        </li>
+      `;
     }
 
     function formatDate(dateString) {
@@ -463,12 +574,9 @@
         const div = document.createElement('div');
         div.className = 'order-card';
 
-        const itemsHtml = (order.items || []).map(item => `
-          <li>
-            <span>${item.quantity}x ${item.product_name}</span>
-            <strong>${formatMoney(Number(item.quantity || 0) * Number(item.price || 0))}</strong>
-          </li>
-        `).join('');
+        const itemsHtml = (order.items || [])
+          .map(renderAccountOrderItem)
+          .join('');
 
         div.innerHTML = `
           <div class="order-top">
@@ -499,12 +607,12 @@
           </div>
 
           <div class="order-footer">
-            <span>Endereço: ${order.address || 'Retirada na loja'}</span>
+            <span>Endereço: ${escapeHtml(order.address || 'Retirada na loja')}</span>
           </div>
 
           ${order.note ? `
             <div class="order-footer">
-              <span>Obs.: ${order.note}</span>
+              <span>Obs.: ${escapeHtml(order.note)}</span>
             </div>
           ` : ''}
         `;

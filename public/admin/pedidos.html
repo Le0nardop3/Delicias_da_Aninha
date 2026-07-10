@@ -187,6 +187,57 @@
       background-color: #0056b3;
     }
 
+
+    .order-item {
+      align-items: flex-start !important;
+      gap: 16px;
+      padding: 12px 0 !important;
+    }
+
+    .order-item-main {
+      min-width: 0;
+      flex: 1;
+      display: grid;
+      gap: 5px;
+    }
+
+    .order-item-options {
+      display: grid;
+      gap: 3px;
+      color: #6c4b3d;
+      font-size: 0.9em;
+      padding-left: 8px;
+    }
+
+    .order-item-options span {
+      display: block;
+    }
+
+    .order-item-note {
+      background: #fff7ed;
+      border-left: 3px solid #f59e0b;
+      border-radius: 6px;
+      padding: 7px 9px;
+      color: #7c2d12;
+      font-size: 0.88em;
+      line-height: 1.35;
+    }
+
+    .order-item-subtotal {
+      white-space: nowrap;
+      color: #6c4b3d;
+    }
+
+    @media (max-width: 600px) {
+      .order-item {
+        flex-direction: column;
+      }
+
+      .order-item-subtotal {
+        align-self: flex-end;
+      }
+    }
+
   </style>
 </head>
 <body>
