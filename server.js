@@ -1163,19 +1163,50 @@ app.put('/api/admin/account', requireAuth, async (req, res) => {
 // ================= PRODUTOS ADMIN =================
 
 app.get('/api/admin/products', requireAuth, async (req, res) => {
-  const db = await getDb();
+  try {
+    const db = await getDb();
 
-  const rows = await db.all(`
-    SELECT 
-      p.*,
-      p.image_url AS image,
-      c.name AS category_name
-    FROM products p
-    LEFT JOIN categories c ON c.id = p.category_id
-    ORDER BY p.name ASC
-  `);
+    const rows = await db.all(`
+      SELECT
+        p.*,
+        p.image_url AS image,
+        c.name AS category_name,
 
-  res.json(rows);
+        COUNT(DISTINCT pog.id)::int AS option_group_count,
+        COUNT(DISTINCT po.id)::int AS option_count
+
+      FROM products p
+
+      LEFT JOIN categories c
+        ON c.id = p.category_id
+
+      LEFT JOIN product_option_groups pog
+        ON pog.product_id = p.id
+       AND pog.active = TRUE
+
+      LEFT JOIN product_options po
+        ON po.group_id = pog.id
+       AND po.active = TRUE
+
+      GROUP BY
+        p.id,
+        c.name
+
+      ORDER BY p.name ASC
+    `);
+
+    res.json(rows);
+
+  } catch (error) {
+    console.error(
+      'Erro ao carregar produtos do admin:',
+      error
+    );
+
+    res.status(500).json({
+      error: 'Erro ao carregar os produtos.'
+    });
+  }
 });
 
 app.post('/api/admin/products', requireAuth, upload.single('image'), async (req, res) => {
@@ -1212,6 +1243,504 @@ app.post('/api/admin/products', requireAuth, upload.single('image'), async (req,
 
   res.json({ ok: true, id: result.id });
 });
+
+// ============================================================
+// OPÇÕES E ADICIONAIS DOS PRODUTOS
+// ============================================================
+
+function normalizeBoolean(value) {
+  return (
+    value === true ||
+    value === 1 ||
+    value === '1' ||
+    value === 'true'
+  );
+}
+
+
+function normalizeProductOptionGroups(value) {
+  if (!Array.isArray(value)) {
+    return {
+      error: 'A lista de grupos de opções é inválida.'
+    };
+  }
+
+  if (value.length > 20) {
+    return {
+      error: 'Um produto pode ter no máximo 20 grupos de opções.'
+    };
+  }
+
+  const groups = [];
+
+  for (
+    let groupIndex = 0;
+    groupIndex < value.length;
+    groupIndex++
+  ) {
+    const rawGroup = value[groupIndex] || {};
+
+    const name = String(
+      rawGroup.name || ''
+    ).trim();
+
+    const required = normalizeBoolean(
+      rawGroup.required
+    );
+
+    let minSelections = Number(
+      rawGroup.min_selections ?? 0
+    );
+
+    let maxSelections = Number(
+      rawGroup.max_selections ?? 1
+    );
+
+    const rawOptions = Array.isArray(
+      rawGroup.options
+    )
+      ? rawGroup.options
+      : [];
+
+    // ================= GRUPO =================
+
+    if (name.length < 2) {
+      return {
+        error:
+          `Informe o nome do grupo ${
+            groupIndex + 1
+          }.`
+      };
+    }
+
+    if (name.length > 80) {
+      return {
+        error:
+          `O nome do grupo "${name}" é muito grande.`
+      };
+    }
+
+    if (
+      !Number.isInteger(minSelections) ||
+      minSelections < 0
+    ) {
+      return {
+        error:
+          `A quantidade mínima do grupo "${name}" é inválida.`
+      };
+    }
+
+    if (
+      !Number.isInteger(maxSelections) ||
+      maxSelections < 1
+    ) {
+      return {
+        error:
+          `A quantidade máxima do grupo "${name}" é inválida.`
+      };
+    }
+
+    if (required && minSelections < 1) {
+      minSelections = 1;
+    }
+
+    if (!required && minSelections < 0) {
+      minSelections = 0;
+    }
+
+    if (maxSelections < minSelections) {
+      return {
+        error:
+          `No grupo "${name}", o máximo não pode ser menor que o mínimo.`
+      };
+    }
+
+    if (rawOptions.length === 0) {
+      return {
+        error:
+          `Adicione pelo menos uma opção ao grupo "${name}".`
+      };
+    }
+
+    if (rawOptions.length > 50) {
+      return {
+        error:
+          `O grupo "${name}" pode ter no máximo 50 opções.`
+      };
+    }
+
+    if (maxSelections > rawOptions.length) {
+      return {
+        error:
+          `No grupo "${name}", o máximo de escolhas não pode ser maior que a quantidade de opções.`
+      };
+    }
+
+    // ================= OPÇÕES =================
+
+    const options = [];
+    const optionNames = new Set();
+
+    for (
+      let optionIndex = 0;
+      optionIndex < rawOptions.length;
+      optionIndex++
+    ) {
+      const rawOption = rawOptions[optionIndex] || {};
+
+      const optionName = String(
+        rawOption.name || ''
+      ).trim();
+
+      const priceAdjustment = Number(
+        rawOption.price_adjustment ?? 0
+      );
+
+      if (!optionName) {
+        return {
+          error:
+            `Informe o nome da opção ${
+              optionIndex + 1
+            } do grupo "${name}".`
+        };
+      }
+
+      if (optionName.length > 100) {
+        return {
+          error:
+            `O nome da opção "${optionName}" é muito grande.`
+        };
+      }
+
+      const normalizedName =
+        optionName.toLocaleLowerCase('pt-BR');
+
+      if (optionNames.has(normalizedName)) {
+        return {
+          error:
+            `A opção "${optionName}" está repetida no grupo "${name}".`
+        };
+      }
+
+      optionNames.add(normalizedName);
+
+      if (
+        !Number.isFinite(priceAdjustment) ||
+        priceAdjustment < 0
+      ) {
+        return {
+          error:
+            `O valor adicional da opção "${optionName}" é inválido.`
+        };
+      }
+
+      if (priceAdjustment > 10000) {
+        return {
+          error:
+            `O valor adicional da opção "${optionName}" é muito alto.`
+        };
+      }
+
+      options.push({
+        name: optionName,
+        price_adjustment:
+          Math.round(priceAdjustment * 100) / 100,
+
+        active:
+          rawOption.active === undefined
+            ? true
+            : normalizeBoolean(rawOption.active),
+
+        sort_order: optionIndex + 1
+      });
+    }
+
+    groups.push({
+      name,
+      required,
+      min_selections: minSelections,
+      max_selections: maxSelections,
+
+      active:
+        rawGroup.active === undefined
+          ? true
+          : normalizeBoolean(rawGroup.active),
+
+      sort_order: groupIndex + 1,
+      options
+    });
+  }
+
+  return {
+    groups
+  };
+}
+
+
+// ============================================================
+// CARREGAR OPÇÕES DE UM PRODUTO
+// ============================================================
+
+app.get(
+  '/api/admin/products/:id/options',
+  requireAuth,
+  async (req, res) => {
+    try {
+      const db = await getDb();
+
+      const productId = Number(req.params.id);
+
+      if (!productId) {
+        return res.status(400).json({
+          error: 'Produto inválido.'
+        });
+      }
+
+      const product = await db.get(`
+        SELECT
+          id,
+          name,
+          price
+        FROM products
+        WHERE id = $1
+      `, [productId]);
+
+      if (!product) {
+        return res.status(404).json({
+          error: 'Produto não encontrado.'
+        });
+      }
+
+      const groups = await db.all(`
+        SELECT
+          id,
+          product_id,
+          name,
+          required,
+          min_selections,
+          max_selections,
+          sort_order,
+          active
+        FROM product_option_groups
+        WHERE product_id = $1
+        ORDER BY sort_order ASC, id ASC
+      `, [productId]);
+
+      for (const group of groups) {
+        group.required = Boolean(group.required);
+        group.active = Boolean(group.active);
+
+        group.min_selections = Number(
+          group.min_selections || 0
+        );
+
+        group.max_selections = Number(
+          group.max_selections || 1
+        );
+
+        group.options = await db.all(`
+          SELECT
+            id,
+            group_id,
+            name,
+            price_adjustment,
+            sort_order,
+            active
+          FROM product_options
+          WHERE group_id = $1
+          ORDER BY sort_order ASC, id ASC
+        `, [group.id]);
+
+        group.options = group.options.map(option => ({
+          ...option,
+
+          price_adjustment: Number(
+            option.price_adjustment || 0
+          ),
+
+          active: Boolean(option.active)
+        }));
+      }
+
+      res.json({
+        ok: true,
+
+        product: {
+          id: product.id,
+          name: product.name,
+          price: Number(product.price || 0)
+        },
+
+        groups
+      });
+
+    } catch (error) {
+      console.error(
+        'Erro ao carregar opções do produto:',
+        error
+      );
+
+      res.status(500).json({
+        error:
+          'Erro ao carregar as opções do produto.'
+      });
+    }
+  }
+);
+
+
+// ============================================================
+// SALVAR TODAS AS OPÇÕES DE UM PRODUTO
+// ============================================================
+
+app.put(
+  '/api/admin/products/:id/options',
+  requireAuth,
+  async (req, res) => {
+    try {
+      const db = await getDb();
+
+      const productId = Number(req.params.id);
+
+      if (!productId) {
+        return res.status(400).json({
+          error: 'Produto inválido.'
+        });
+      }
+
+      const product = await db.get(`
+        SELECT
+          id,
+          name
+        FROM products
+        WHERE id = $1
+      `, [productId]);
+
+      if (!product) {
+        return res.status(404).json({
+          error: 'Produto não encontrado.'
+        });
+      }
+
+      const normalized =
+        normalizeProductOptionGroups(
+          req.body.groups
+        );
+
+      if (normalized.error) {
+        return res.status(400).json({
+          error: normalized.error
+        });
+      }
+
+      const groups = normalized.groups;
+
+      /*
+        Toda a estrutura do produto é substituída.
+
+        Essa estratégia torna a edição mais simples:
+        o funcionário edita tudo na tela e clica
+        apenas uma vez em "Salvar produto e opções".
+      */
+
+      await db.run(`
+        DELETE FROM product_option_groups
+        WHERE product_id = $1
+      `, [productId]);
+
+      let totalOptions = 0;
+
+      for (const group of groups) {
+        const groupResult = await db.get(`
+          INSERT INTO product_option_groups (
+            product_id,
+            name,
+            required,
+            min_selections,
+            max_selections,
+            sort_order,
+            active,
+            created_at,
+            updated_at
+          )
+          VALUES (
+            $1, $2, $3, $4, $5,
+            $6, $7,
+            CURRENT_TIMESTAMP,
+            CURRENT_TIMESTAMP
+          )
+          RETURNING id
+        `, [
+          productId,
+          group.name,
+          group.required,
+          group.min_selections,
+          group.max_selections,
+          group.sort_order,
+          group.active
+        ]);
+
+        for (const option of group.options) {
+          await db.run(`
+            INSERT INTO product_options (
+              group_id,
+              name,
+              price_adjustment,
+              active,
+              sort_order,
+              created_at,
+              updated_at
+            )
+            VALUES (
+              $1, $2, $3, $4, $5,
+              CURRENT_TIMESTAMP,
+              CURRENT_TIMESTAMP
+            )
+          `, [
+            groupResult.id,
+            option.name,
+            option.price_adjustment,
+            option.active,
+            option.sort_order
+          ]);
+
+          totalOptions++;
+        }
+      }
+
+      await logAudit(
+        req,
+        'editou opções do produto',
+        {
+          produto_id: productId,
+          produto: product.name,
+          grupos: groups.length,
+          opcoes: totalOptions
+        }
+      );
+
+      res.json({
+        ok: true,
+        productId,
+        groupCount: groups.length,
+        optionCount: totalOptions,
+        message:
+          'Opções do produto salvas com sucesso.'
+      });
+
+    } catch (error) {
+      console.error(
+        'Erro ao salvar opções do produto:',
+        error
+      );
+
+      res.status(500).json({
+        error:
+          'Erro ao salvar as opções do produto.'
+      });
+    }
+  }
+);
 
 app.put('/api/admin/products/:id', requireAuth, upload.single('image'), async (req, res) => {
   const db = await getDb();

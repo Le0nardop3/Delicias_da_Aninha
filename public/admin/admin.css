@@ -167,3 +167,660 @@
   font-weight: 900;
   cursor: pointer;
 }
+
+/* ================= OPÇÕES DOS PRODUTOS ================= */
+
+.product-options-editor {
+  margin-top: 24px;
+  padding: 20px;
+  border: 1px solid #e7ddd7;
+  border-radius: 18px;
+  background: #fffaf7;
+}
+
+.options-editor-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 14px;
+  margin-bottom: 16px;
+}
+
+.options-editor-header h2 {
+  margin: 0 0 5px;
+  color: #4a2418;
+  font-size: 18px;
+}
+
+.options-editor-header p {
+  margin: 0;
+  color: #7a5a4f;
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.option-groups-editor {
+  display: grid;
+  gap: 16px;
+}
+
+.options-editor-empty {
+  padding: 18px;
+  border: 1px dashed #d8c4b9;
+  border-radius: 14px;
+  color: #7a5a4f;
+  text-align: center;
+  background: #fff;
+  font-size: 13px;
+}
+
+.option-group-editor-card {
+  border: 1px solid #dfcec4;
+  border-radius: 16px;
+  background: #fff;
+  overflow: hidden;
+}
+
+.option-group-editor-top {
+  padding: 14px;
+  background: #f8eee9;
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: center;
+}
+
+.option-group-editor-top strong {
+  color: #4a2418;
+}
+
+.option-group-editor-body {
+  padding: 16px;
+  display: grid;
+  gap: 14px;
+}
+
+.option-group-fields {
+  display: grid;
+  grid-template-columns: 1.5fr 1fr;
+  gap: 12px;
+}
+
+.option-selection-fields {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 12px;
+}
+
+.option-editor-field {
+  display: grid;
+  gap: 6px;
+}
+
+.option-editor-field label {
+  font-size: 12px;
+  font-weight: 800;
+  color: #5e142a;
+}
+
+.option-editor-field input,
+.option-editor-field select {
+  width: 100%;
+  border: 1px solid #d9c7bd;
+  border-radius: 10px;
+  padding: 10px;
+  background: #fff;
+}
+
+.option-group-help {
+  padding: 10px 12px;
+  background: #f7f2ef;
+  border-radius: 10px;
+  font-size: 12px;
+  color: #6d5147;
+  line-height: 1.45;
+}
+
+.option-items-editor {
+  display: grid;
+  gap: 10px;
+}
+
+.option-item-editor {
+  display: grid;
+  grid-template-columns: 1fr 140px auto;
+  gap: 10px;
+  align-items: end;
+  padding: 12px;
+  background: #fffaf7;
+  border: 1px solid #eadbd2;
+  border-radius: 12px;
+}
+
+.option-item-editor .option-editor-field {
+  min-width: 0;
+}
+
+.option-item-remove,
+.option-group-remove {
+  border: 0;
+  background: #fee2e2;
+  color: #991b1b;
+  border-radius: 9px;
+  padding: 9px 12px;
+  cursor: pointer;
+  font-weight: 800;
+}
+
+.option-item-remove:hover,
+.option-group-remove:hover {
+  background: #fecaca;
+}
+
+.option-editor-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.option-add-button,
+.option-duplicate-button {
+  border: 0;
+  border-radius: 10px;
+  padding: 10px 13px;
+  cursor: pointer;
+  font-weight: 800;
+}
+
+.option-add-button {
+  background: #8b1e3f;
+  color: #fff;
+}
+
+.option-duplicate-button {
+  background: #e7edf0;
+  color: #145f7a;
+}
+
+.option-group-warning {
+  display: none;
+  color: #991b1b;
+  background: #fee2e2;
+  border-radius: 9px;
+  padding: 9px 11px;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.option-group-warning.show {
+  display: block;
+}
+
+@media (max-width: 700px) {
+  .options-editor-header {
+    flex-direction: column;
+  }
+
+  .options-editor-header button {
+    width: 100%;
+  }
+
+  .option-group-fields,
+  .option-selection-fields,
+  .option-item-editor {
+    grid-template-columns: 1fr;
+  }
+
+  .option-item-remove {
+    width: 100%;
+  }
+}
+
+/* =========================================================
+   PAINEL DE OPÇÕES EM LARGURA TOTAL
+   ========================================================= */
+
+.admin-layout {
+  align-items: start;
+}
+
+.product-options-panel {
+  grid-column: 1 / -1;
+  padding: 28px;
+}
+
+.product-options-panel .options-editor-header {
+  align-items: center;
+  padding-bottom: 18px;
+  border-bottom: 1px solid #eee1d8;
+}
+
+.product-options-panel .options-editor-header > div {
+  max-width: 760px;
+}
+
+.product-options-panel .options-editor-header h2 {
+  font-size: 24px;
+}
+
+.product-options-panel .options-editor-header p {
+  font-size: 14px;
+}
+
+.product-options-panel #addOptionGroupBtn {
+  width: auto;
+  min-width: 180px;
+}
+
+.product-options-panel .option-groups-editor {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: start;
+}
+
+.product-options-panel .options-editor-empty {
+  grid-column: 1 / -1;
+  padding: 28px;
+}
+
+.product-options-panel .option-group-editor-card {
+  min-width: 0;
+}
+
+.product-options-panel .option-group-editor-top {
+  min-height: 64px;
+}
+
+.product-options-panel .option-group-editor-top strong {
+  font-size: 17px;
+  line-height: 1.25;
+}
+
+.product-options-panel .option-group-fields {
+  grid-template-columns: minmax(0, 1.5fr) minmax(180px, .8fr);
+}
+
+.product-options-panel .option-selection-fields {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.product-options-panel .option-item-editor {
+  grid-template-columns: minmax(0, 1fr) 170px auto;
+}
+
+.product-options-panel input,
+.product-options-panel select {
+  min-width: 0;
+  font-size: 14px;
+}
+
+.options-panel-footer {
+  margin-top: 20px;
+  padding-top: 18px;
+  border-top: 1px solid #eee1d8;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+}
+
+.options-panel-footer small {
+  color: #7b6254;
+  line-height: 1.4;
+}
+
+.options-save-button {
+  width: auto;
+  min-width: 230px;
+  border: 0;
+  border-radius: 12px;
+  padding: 14px 18px;
+}
+
+@media (max-width: 1100px) {
+  .product-options-panel .option-groups-editor {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 700px) {
+  .product-options-panel {
+    padding: 18px;
+  }
+
+  .product-options-panel .options-editor-header {
+    align-items: stretch;
+  }
+
+  .product-options-panel #addOptionGroupBtn {
+    width: 100%;
+  }
+
+  .product-options-panel .option-group-fields,
+  .product-options-panel .option-selection-fields,
+  .product-options-panel .option-item-editor {
+    grid-template-columns: 1fr;
+  }
+
+  .product-options-panel .option-group-editor-top {
+    align-items: flex-start;
+  }
+
+  .options-panel-footer {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .options-save-button {
+    width: 100%;
+    min-width: 0;
+  }
+}
+
+
+/* =========================================================
+   EDITOR UNIFICADO DE PRODUTOS
+   ========================================================= */
+
+.product-editor-panel {
+  grid-column: 1 / -1;
+  padding: 28px;
+}
+
+.product-editor-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 22px;
+  padding-bottom: 18px;
+  border-bottom: 1px solid #eee1d8;
+}
+
+.product-editor-heading h1 {
+  margin: 0 0 6px;
+}
+
+.product-editor-heading p {
+  color: #7b6254;
+  line-height: 1.45;
+}
+
+.product-editor-grid {
+  display: grid;
+  grid-template-columns: minmax(300px, .78fr) minmax(0, 1.55fr);
+  gap: 24px;
+  align-items: start;
+}
+
+.product-basic-fields {
+  display: grid;
+  gap: 11px;
+  padding: 20px;
+  border: 1px solid #eee1d8;
+  border-radius: 18px;
+  background: #fffaf7;
+  position: sticky;
+  top: 96px;
+}
+
+.product-basic-fields > label,
+.product-basic-fields .row label,
+.product-basic-fields .checks label {
+  font-weight: 800;
+  color: #4a2e20;
+}
+
+.product-basic-fields input,
+.product-basic-fields textarea,
+.product-basic-fields select {
+  width: 100%;
+  border: 1px solid #e7d8ce;
+  border-radius: 12px;
+  padding: 12px;
+  font-size: 15px;
+}
+
+.product-basic-fields textarea {
+  min-height: 110px;
+  resize: vertical;
+}
+
+.product-options-inline {
+  min-width: 0;
+  padding: 20px;
+  border: 1px solid #eee1d8;
+  border-radius: 18px;
+  background: #fffaf7;
+}
+
+.product-options-inline .options-editor-header {
+  margin-bottom: 18px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid #eee1d8;
+}
+
+.product-options-inline .option-groups-editor {
+  grid-template-columns: 1fr;
+}
+
+.product-options-inline .option-group-fields {
+  grid-template-columns: minmax(0, 1.35fr) minmax(190px, .65fr);
+}
+
+.product-options-inline .option-selection-fields {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.product-options-inline .option-item-editor {
+  grid-template-columns: minmax(0, 1fr) 170px auto;
+}
+
+.product-editor-footer {
+  margin-top: 22px;
+  padding-top: 18px;
+  border-top: 1px solid #eee1d8;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+}
+
+.product-editor-footer-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.product-editor-footer-actions button {
+  width: auto;
+  min-width: 190px;
+}
+
+.admin-tools-panel {
+  grid-column: 1;
+}
+
+.list-panel {
+  grid-column: 2;
+}
+
+/* neutraliza o painel antigo separado */
+.product-options-panel {
+  grid-column: auto;
+}
+
+@media (max-width: 1050px) {
+  .product-editor-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .product-basic-fields {
+    position: static;
+  }
+
+  .admin-tools-panel,
+  .list-panel {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (max-width: 700px) {
+  .product-editor-panel {
+    padding: 18px;
+  }
+
+  .product-basic-fields,
+  .product-options-inline {
+    padding: 15px;
+  }
+
+  .product-options-inline .option-group-fields,
+  .product-options-inline .option-selection-fields,
+  .product-options-inline .option-item-editor {
+    grid-template-columns: 1fr;
+  }
+
+  .product-editor-footer {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .product-editor-footer-actions {
+    flex-direction: column;
+  }
+
+  .product-editor-footer-actions button {
+    width: 100%;
+    min-width: 0;
+  }
+}
+/* =========================================================
+   CONFIGURAÇÕES DA LOJA E CONTA ADMIN
+   ========================================================= */
+
+.settings-box,
+.account-box {
+  background: #fff;
+  border: 1px solid #eee1d8;
+  border-radius: 18px;
+  padding: 20px;
+}
+
+.settings-box h2,
+.account-box h2,
+.account-form-title {
+  margin: 0 0 16px;
+  color: #3a1609;
+  font-size: 20px;
+}
+
+.settings-form,
+.account-form {
+  display: grid;
+  gap: 12px;
+}
+
+.settings-form label,
+.account-form label {
+  display: block;
+  color: #4a2e20;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.settings-form input[type="text"],
+.account-form input[type="text"],
+.account-form input[type="password"] {
+  width: 100%;
+  min-height: 44px;
+  padding: 11px 13px;
+  border: 1px solid #e1d2c8;
+  border-radius: 11px;
+  background: #fff;
+  color: #21140d;
+  font-size: 14px;
+  outline: none;
+  transition:
+    border-color 0.2s ease,
+    box-shadow 0.2s ease;
+}
+
+.settings-form input:focus,
+.account-form input:focus {
+  border-color: #8b1e3f;
+  box-shadow: 0 0 0 3px rgba(139, 30, 63, 0.1);
+}
+
+.settings-form .check-line {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 12px 14px;
+  border: 1px solid #eee1d8;
+  border-radius: 11px;
+  background: #fffaf7;
+  cursor: pointer;
+}
+
+.settings-form .check-line input {
+  width: 18px;
+  height: 18px;
+  margin: 0;
+  accent-color: #8b1e3f;
+}
+
+.settings-form button,
+.account-form button {
+  width: 100%;
+  min-height: 44px;
+  border: 0;
+  border-radius: 11px;
+  padding: 11px 16px;
+  background: linear-gradient(135deg, #8b1e3f, #145f7a);
+  color: #fff;
+  font-size: 14px;
+  font-weight: 900;
+  cursor: pointer;
+  transition:
+    transform 0.15s ease,
+    box-shadow 0.15s ease;
+}
+
+.settings-form button:hover,
+.account-form button:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 8px 18px rgba(80, 36, 12, 0.16);
+}
+
+.account-form small {
+  display: block;
+  color: #7b6254;
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+#accountMsg {
+  display: block;
+  color: #8b1e3f;
+  font-size: 13px;
+  font-weight: 800;
+  line-height: 1.4;
+}
+
+.settings-account-area {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 18px;
+  align-items: start;
+}
+
+@media (max-width: 800px) {
+  .settings-account-area {
+    grid-template-columns: 1fr;
+  }
+
+  .settings-box,
+  .account-box {
+    padding: 16px;
+  }
+}

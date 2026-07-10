@@ -1,12 +1,14 @@
 <!DOCTYPE html>
 <html lang="pt-br">
+
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <link rel="icon" href="/assets/logo.png" type="image/png">
   <title>Delícias da Aninha | Painel Admin</title>
-  <link rel="stylesheet" href="admin.css" />
+  <link rel="stylesheet" href="admin.css?v=3" />
 </head>
+
 <body>
   <header class="admin-header">
     <div>
@@ -21,10 +23,18 @@
   </header>
 
   <main class="admin-layout">
-    <section class="panel form-panel">
-      <h1 id="formTitle">Novo produto</h1>
+    <section class="panel product-editor-panel">
+      <div class="product-editor-heading">
+        <div>
+          <h1 id="formTitle">Novo produto</h1>
+          <p>Edite os dados, sabores, recheios e adicionais no mesmo lugar.</p>
+        </div>
+      </div>
 
       <form id="productForm">
+        <div class="product-editor-grid">
+          <div class="product-basic-fields">
+
         <input type="hidden" id="productId">
 
         <label>Nome do produto</label>
@@ -52,10 +62,44 @@
           <label><input type="checkbox" id="featured"> Produto em destaque</label>
         </div>
 
-        <button type="submit" class="primary">Salvar produto</button>
-        <button type="button" class="secondary" id="clearBtn">Limpar formulário</button>
-        <span id="formMsg"></span>
+      
+          </div>
+
+          <div class="product-options-inline">
+<div class="options-editor-header">
+            <div>
+              <h2>Opções e adicionais</h2>
+              <p>
+                Cadastre sabores, recheios e adicionais que o cliente poderá escolher.
+              </p>
+            </div>
+
+            <button type="button" class="secondary" id="addOptionGroupBtn">
+              + Adicionar grupo
+            </button>
+          </div>
+
+          <div id="optionGroupsEditor" class="option-groups-editor">
+            <div class="options-editor-empty">
+              Selecione um produto para editar ou cadastre um novo produto.
+            </div>
+          </div>
+
+          
+          </div>
+        </div>
+
+        <div class="product-editor-footer">
+          <span id="formMsg"></span>
+          <div class="product-editor-footer-actions">
+            <button type="button" class="secondary" id="clearBtn">Limpar formulário</button>
+            <button type="submit" class="primary">Salvar produto e opções</button>
+          </div>
+        </div>
       </form>
+    </section>
+
+    <section class="panel admin-tools-panel">
 
       <hr>
 
@@ -106,6 +150,7 @@
         <small>Após alterar, você será desconectado para entrar com o novo acesso.</small>
         <span id="accountMsg"></span>
       </form>
+    
     </section>
 
     <section class="panel list-panel">
@@ -168,6 +213,7 @@
     </section>
   </main>
 
-  <script src="painel.js"></script>
+  <script src="painel.js?v=3"></script>
 </body>
+
 </html>
