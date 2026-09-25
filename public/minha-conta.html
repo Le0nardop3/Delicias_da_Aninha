@@ -199,6 +199,31 @@
       color: #991b1b;
     }
 
+    .status.aguardando_whatsapp {
+      background: #fff1c8;
+      color: #825a00;
+    }
+
+    .status.confirmado {
+      background: #dcfce7;
+      color: #166534;
+    }
+
+    .status.preparando {
+      background: #efe1f8;
+      color: #6b3f9c;
+    }
+
+    .status.pronto {
+      background: #dff4fb;
+      color: #17627d;
+    }
+
+    .status.entregue {
+      background: #e7eee9;
+      color: #315a43;
+    }
+
     .order-items {
       list-style: none;
       display: grid;
@@ -508,13 +533,19 @@
 
     function statusLabel(status) {
       const map = {
+        aguardando_whatsapp: 'Aguardando confirmação pelo WhatsApp',
+        confirmado: 'Pedido confirmado',
+        preparando: 'Em preparo',
+        pronto: 'Pronto para entrega/retirada',
+        entregue: 'Entregue',
+        cancelado: 'Cancelado',
+        expirado: 'Expirado — não confirmado pelo WhatsApp',
         novo: 'Novo',
         producao: 'Em produção',
-        finalizado: 'Finalizado',
-        cancelado: 'Cancelado'
+        finalizado: 'Finalizado'
       };
 
-      return map[status] || status || 'Novo';
+      return map[status] || status || 'Aguardando confirmação';
     }
 
     function paymentStatusLabel(status) {
@@ -585,8 +616,8 @@
               <small>${formatDate(order.created_at)}</small>
             </div>
 
-            <span class="status ${order.status}">
-              ${statusLabel(order.status)}
+            <span class="status ${escapeHtml(order.operation_status || order.status || 'aguardando_whatsapp')}">
+              ${statusLabel(order.operation_status || order.status)}
             </span>
           </div>
 

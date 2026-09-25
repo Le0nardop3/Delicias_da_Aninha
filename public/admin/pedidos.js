@@ -199,6 +199,9 @@ function renderOrders() {
                 >
                   Reimprimir ticket
                 </button>
+                ${(order.status === 'cancelado' || order.status === 'expirado')
+                  ? `<button class="secondary restore-operation" onclick="restoreOrderToOperation(${order.id})">↩ Voltar para operação</button>`
+                  : ''}
               </div>
             </div>
 
@@ -257,6 +260,34 @@ async function changeOrderStatus(id, status) {
   }
 
   await loadOrders();
+}
+
+
+async function restoreOrderToOperation(id) {
+  const confirmed = confirm(
+    `Voltar o pedido #${id} para a operação?\n\n` +
+    `Ele ficará como “Aguardando WhatsApp” novamente.\n` +
+    `Use isso apenas se o cancelamento/expiração tiver acontecido por engano.`
+  );
+  if (!confirmed) return;
+
+  try {
+    const res = await fetch(`/api/admin/orders/${id}/restore-operation`, {
+      method: 'POST'
+    });
+    const data = await res.json().catch(() => ({}));
+
+    if (!res.ok || !data.ok) {
+      alert(data.error || 'Não foi possível retornar o pedido para a operação.');
+      return;
+    }
+
+    alert(`Pedido #${id} retornou para a operação como “Aguardando WhatsApp”.`);
+    await loadOrders();
+  } catch (error) {
+    console.error(error);
+    alert('Erro ao retornar o pedido para a operação.');
+  }
 }
 
 async function reimprimirPedido(id) {

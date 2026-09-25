@@ -1137,6 +1137,15 @@ async function sendOrder(event) {
     return;
   }
 
+  // Abre uma janela imediatamente durante o clique do usuário para reduzir
+  // bloqueios de pop-up quando a resposta da API terminar.
+  let whatsappWindow = null;
+  try {
+    whatsappWindow = window.open('', '_blank');
+  } catch {
+    whatsappWindow = null;
+  }
+
   try {
     await saveCurrentAddressIfNeeded(address);
 
@@ -1175,6 +1184,10 @@ async function sendOrder(event) {
     const data = await response.json();
 
     if (!response.ok || !data.ok) {
+      if (whatsappWindow && !whatsappWindow.closed) {
+        whatsappWindow.close();
+      }
+
       alert(data.error || 'Erro ao salvar pedido');
 
       if (response.status === 401) {
@@ -1189,9 +1202,30 @@ async function sendOrder(event) {
 
     const url = `https://wa.me/${whatsappNumber}?text=${encodeURIComponent(message)}`;
 
-    window.open(url, '_blank');
+    // O pedido foi criado no sistema, mas continua aguardando a confirmação
+    // até que a mensagem seja efetivamente recebida pela Delícias da Aninha.
+    if (whatsappWindow) {
+      whatsappWindow.location.href = url;
+    } else {
+      alert(
+        `Pedido #${data.orderId} registrado como aguardando confirmação.\n\n` +
+        `O navegador bloqueou a abertura automática do WhatsApp. ` +
+        `Clique em OK para abrir o WhatsApp e envie a mensagem do pedido.`
+      );
+      window.location.href = url;
+      return;
+    }
+
+    alert(
+      `Pedido #${data.orderId} registrado!\n\n` +
+      `Agora envie a mensagem que foi preparada no WhatsApp. ` +
+      `Seu pedido só será confirmado depois que a mensagem chegar à Delícias da Aninha.`
+    );
 
   } catch (err) {
+    if (whatsappWindow && !whatsappWindow.closed) {
+      whatsappWindow.close();
+    }
     alert('Erro ao processar pedido');
     console.error(err);
   }
