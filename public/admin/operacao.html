@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Operação | Delícias da Aninha</title>
+  <link rel="icon" href="/assets/logo.png" type="image/png">
+  <link rel="stylesheet" href="operacao.css">
+</head>
+<body>
+  <header class="operation-header">
+    <div class="brand-block">
+      <div class="brand-mark">DA</div>
+      <div>
+        <strong>Delícias da Aninha</strong>
+        <span>Painel de operação</span>
+      </div>
+    </div>
+
+    <div class="header-center">
+      <div class="live-indicator"><span></span> Atualização automática</div>
+      <small id="lastUpdate">Atualizando...</small>
+    </div>
+
+    <div class="header-actions">
+      <button class="header-button" id="soundBtn" type="button" title="Ativar ou desativar aviso sonoro">🔔 Som</button>
+      <button class="header-button" id="refreshBtn" type="button">↻ Atualizar</button>
+      <a class="header-button" href="pedidos.html">📋 Pedidos</a>
+      <a class="header-button primary" href="painel.html">⚙ Painel</a>
+    </div>
+  </header>
+
+  <main class="operation-main">
+    <section class="operation-summary">
+      <div>
+        <p class="eyebrow">Operação de hoje</p>
+        <h1>Pedidos em andamento</h1>
+        <p class="subtitle">Confirme pelo WhatsApp antes de iniciar o preparo.</p><small id="expirationInfo" class="expiration-info">Pedidos sem WhatsApp expiram automaticamente.</small>
+      </div>
+
+      <div class="summary-actions">
+        <button class="view-button active" data-view="kanban">▦ Kanban</button>
+        <button class="view-button" data-view="lista">☷ Lista</button>
+      </div>
+    </section>
+
+    <section class="metrics" id="metrics">
+      <div class="metric awaiting">
+        <span>🟡 Aguardando WhatsApp</span>
+        <strong id="countAwaiting">0</strong>
+      </div>
+      <div class="metric confirmed">
+        <span>🟢 Confirmados</span>
+        <strong id="countConfirmed">0</strong>
+      </div>
+      <div class="metric preparing">
+        <span>🟣 Em preparo</span>
+        <strong id="countPreparing">0</strong>
+      </div>
+      <div class="metric ready">
+        <span>🔵 Prontos</span>
+        <strong id="countReady">0</strong>
+      </div>
+    </section>
+
+    <section id="newOrderBanner" class="new-order-banner" hidden>
+      <div>
+        <strong>🔔 Novo pedido aguardando WhatsApp</strong>
+        <span id="newOrderBannerText">Há novos pedidos para conferir.</span>
+      </div>
+      <button type="button" id="viewNewOrdersBtn">Ver pedidos</button>
+    </section>
+
+    <section id="kanbanView" class="kanban">
+      <div class="kanban-column awaiting" data-status="aguardando_whatsapp">
+        <div class="column-head">
+          <div><span>🟡</span><div><strong>Aguardando WhatsApp</strong><small>Confirme quando a mensagem chegar</small></div></div>
+          <b id="columnCountAwaiting">0</b>
+        </div>
+        <div class="cards" id="cardsAwaiting"></div>
+      </div>
+
+      <div class="kanban-column confirmed" data-status="confirmado">
+        <div class="column-head">
+          <div><span>🟢</span><div><strong>Confirmados</strong><small>Prontos para começar</small></div></div>
+          <b id="columnCountConfirmed">0</b>
+        </div>
+        <div class="cards" id="cardsConfirmed"></div>
+      </div>
+
+      <div class="kanban-column preparing" data-status="preparando">
+        <div class="column-head">
+          <div><span>🟣</span><div><strong>Em preparo</strong><small>Pedidos sendo produzidos</small></div></div>
+          <b id="columnCountPreparing">0</b>
+        </div>
+        <div class="cards" id="cardsPreparing"></div>
+      </div>
+
+      <div class="kanban-column ready" data-status="pronto">
+        <div class="column-head">
+          <div><span>🔵</span><div><strong>Prontos</strong><small>Entregar ou aguardar retirada</small></div></div>
+          <b id="columnCountReady">0</b>
+        </div>
+        <div class="cards" id="cardsReady"></div>
+      </div>
+    </section>
+
+    <section id="listView" class="list-view" hidden>
+      <div class="list-toolbar">
+        <input id="listSearch" type="search" placeholder="Buscar pedido, cliente ou telefone...">
+        <select id="listStatus">
+          <option value="">Todas as etapas</option>
+          <option value="aguardando_whatsapp">Aguardando WhatsApp</option>
+          <option value="confirmado">Confirmado</option>
+          <option value="preparando">Em preparo</option>
+          <option value="pronto">Pronto</option>
+          <option value="entregue">Entregue</option>
+          <option value="cancelado">Cancelado</option>
+          <option value="expirado">Expirado</option>
+        </select>
+      </div>
+      <div id="listOrders"></div>
+    </section>
+  </main>
+
+  <div id="orderModal" class="modal" hidden>
+    <div class="modal-backdrop" data-close-modal></div>
+    <section class="modal-panel" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+      <button class="modal-close" id="closeModal" type="button" aria-label="Fechar">×</button>
+      <div id="modalContent"></div>
+    </section>
+  </div>
+
+  <div id="toast" class="toast" hidden></div>
+
+  <script src="operacao.js"></script>
+</body>
+</html>

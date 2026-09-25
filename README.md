@@ -47,3 +47,16 @@ const WHATSAPP_NUMBER = process.env.WHATSAPP_NUMBER || '5583988061752';
 O login inicial é admin / admin123 apenas para o primeiro acesso.
 Depois de entrar no painel, use a seção "Conta admin" para trocar usuário e senha.
 Por segurança, a tela de login não mostra mais as credenciais.
+
+
+## Expiração de pedidos aguardando WhatsApp
+
+Pedidos que permanecem em **Aguardando WhatsApp** expiram automaticamente após 60 minutos por padrão. Isso evita acumular pedidos que foram iniciados no site, mas cuja mensagem não foi enviada no WhatsApp.
+
+No Render, você pode ajustar o tempo pela variável de ambiente:
+
+```txt
+ORDER_WHATSAPP_EXPIRATION_MINUTES=60
+```
+
+Se um pedido expirar ou for cancelado por engano, o painel antigo de **Pedidos** possui o botão **Voltar para operação**, que o devolve para **Aguardando WhatsApp**.

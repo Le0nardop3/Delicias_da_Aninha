@@ -555,6 +555,7 @@ app.post('/api/customer/reset-password', async (req, res) => {
 app.get('/api/customer/orders', requireCustomerAuth, async (req, res) => {
   try {
     const db = await getDb();
+    await expireStaleWhatsAppOrders(db);
     const orders = await db.all(`
       SELECT
         id,
@@ -565,6 +566,15 @@ app.get('/api/customer/orders', requireCustomerAuth, async (req, res) => {
         note,
         total,
         status,
+        COALESCE(
+          operation_status,
+          CASE status
+            WHEN 'producao' THEN 'preparando'
+            WHEN 'finalizado' THEN 'entregue'
+            WHEN 'cancelado' THEN 'cancelado'
+            ELSE 'aguardando_whatsapp'
+          END
+        ) AS operation_status,
         payment_status,
         paid_at,
         created_at
@@ -2087,9 +2097,10 @@ app.post('/api/orders', async (req, res) => {
         address,
         payment,
         note,
-        total
+        total,
+        operation_status
       )
-      VALUES ($1, $2, $3, $4, $5, $6, $7)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, 'aguardando_whatsapp')
       RETURNING id
     `, [
       customerId,
@@ -2143,32 +2154,144 @@ app.post('/api/orders', async (req, res) => {
 
 // ================= PEDIDOS ADMIN =================
 
-app.get('/api/admin/orders', requireAuth, async (req, res) => {
-  const db = await getDb();
+const OPERATION_STATUSES = [
+  'aguardando_whatsapp',
+  'confirmado',
+  'preparando',
+  'pronto',
+  'entregue',
+  'cancelado',
+  'expirado'
+];
 
-  const orders = await db.all(`
+function operationStatusLabel(status) {
+  const map = {
+    aguardando_whatsapp: 'Aguardando WhatsApp',
+    confirmado: 'Confirmado',
+    preparando: 'Em preparo',
+    pronto: 'Pronto',
+    entregue: 'Entregue',
+    cancelado: 'Cancelado',
+    expirado: 'Expirado'
+  };
+
+  return map[status] || status || 'Aguardando WhatsApp';
+}
+
+async function getOrderItems(db, order) {
+  order.items = await db.all(`
     SELECT *
-    FROM orders
-    ORDER BY 
-      CASE status
-        WHEN 'novo' THEN 1
-        WHEN 'producao' THEN 2
-        WHEN 'finalizado' THEN 3
-        WHEN 'cancelado' THEN 4
-        ELSE 5
-      END,
-      id DESC
-  `);
+    FROM order_items
+    WHERE order_id = $1
+    ORDER BY id ASC
+  `, [order.id]);
 
-  for (const order of orders) {
-    order.items = await db.all(`
-      SELECT *
-      FROM order_items
-      WHERE order_id = $1
-    `, [order.id]);
+  return order;
+}
+
+app.get('/api/admin/orders', requireAuth, async (req, res) => {
+  try {
+    const db = await getDb();
+    await expireStaleWhatsAppOrders(db);
+
+    const orders = await db.all(`
+      SELECT *,
+        COALESCE(
+          operation_status,
+          CASE status
+            WHEN 'producao' THEN 'preparando'
+            WHEN 'finalizado' THEN 'entregue'
+            WHEN 'cancelado' THEN 'cancelado'
+            ELSE 'aguardando_whatsapp'
+          END
+        ) AS operation_status
+      FROM orders
+      ORDER BY id DESC
+    `);
+
+    for (const order of orders) {
+      await getOrderItems(db, order);
+    }
+
+    res.json(orders);
+  } catch (error) {
+    console.error('Erro ao carregar pedidos admin:', error);
+    res.status(500).json({ error: 'Erro ao carregar pedidos.' });
   }
+});
 
-  res.json(orders);
+const ORDER_WHATSAPP_EXPIRATION_MINUTES = Math.max(5, Number(process.env.ORDER_WHATSAPP_EXPIRATION_MINUTES || 60));
+
+async function expireStaleWhatsAppOrders(db) {
+  const result = await db.run(`
+    UPDATE orders
+    SET
+      operation_status = 'expirado',
+      status = 'expirado'
+    WHERE COALESCE(operation_status, 'aguardando_whatsapp') = 'aguardando_whatsapp'
+      AND created_at < CURRENT_TIMESTAMP - ($1 * INTERVAL '1 minute')
+  `, [ORDER_WHATSAPP_EXPIRATION_MINUTES]);
+
+  if (result.changes > 0) {
+    console.log(`Pedidos expirados por falta de confirmação no WhatsApp: ${result.changes}`);
+  }
+}
+
+app.get('/api/admin/operation/orders', requireAuth, async (req, res) => {
+  try {
+    const db = await getDb();
+    await expireStaleWhatsAppOrders(db);
+
+    const orders = await db.all(`
+      SELECT
+        id,
+        customer_id,
+        customer_name,
+        customer_phone,
+        address,
+        payment,
+        payment_status,
+        paid_at,
+        note,
+        total,
+        status,
+        created_at,
+        COALESCE(
+          operation_status,
+          CASE status
+            WHEN 'producao' THEN 'preparando'
+            WHEN 'finalizado' THEN 'entregue'
+            WHEN 'cancelado' THEN 'cancelado'
+            ELSE 'aguardando_whatsapp'
+          END
+        ) AS operation_status,
+        whatsapp_confirmed_at
+      FROM orders
+      WHERE COALESCE(operation_status, 'aguardando_whatsapp') IN (
+        'aguardando_whatsapp', 'confirmado', 'preparando', 'pronto'
+      )
+      ORDER BY
+        CASE COALESCE(operation_status, 'aguardando_whatsapp')
+          WHEN 'aguardando_whatsapp' THEN 1
+          WHEN 'confirmado' THEN 2
+          WHEN 'preparando' THEN 3
+          WHEN 'pronto' THEN 4
+          WHEN 'entregue' THEN 5
+          WHEN 'cancelado' THEN 6
+          ELSE 7
+        END,
+        id ASC
+    `);
+
+    for (const order of orders) {
+      await getOrderItems(db, order);
+    }
+
+    res.json({ ok: true, orders, expirationMinutes: ORDER_WHATSAPP_EXPIRATION_MINUTES });
+  } catch (error) {
+    console.error('Erro ao carregar operação:', error);
+    res.status(500).json({ error: 'Erro ao carregar a operação.' });
+  }
 });
 
 app.put('/api/admin/orders/:id/status', requireAuth, async (req, res) => {
@@ -2177,7 +2300,7 @@ app.put('/api/admin/orders/:id/status', requireAuth, async (req, res) => {
   const id = Number(req.params.id);
   const status = String(req.body.status || '').trim();
 
-  const allowed = ['novo', 'producao', 'finalizado', 'cancelado'];
+  const allowed = ['novo', 'producao', 'finalizado', 'cancelado', 'expirado'];
 
   if (!allowed.includes(status)) {
     return res.status(400).json({ error: 'Status inválido.' });
@@ -2195,6 +2318,114 @@ app.put('/api/admin/orders/:id/status', requireAuth, async (req, res) => {
   });
 
   res.json({ ok: true });
+});
+
+app.put('/api/admin/orders/:id/operation-status', requireAuth, async (req, res) => {
+  try {
+    const db = await getDb();
+    const id = Number(req.params.id);
+    const operationStatus = String(req.body.operation_status || '').trim();
+
+    if (!id || !OPERATION_STATUSES.includes(operationStatus)) {
+      return res.status(400).json({ error: 'Status operacional inválido.' });
+    }
+
+    const order = await db.get(`
+      SELECT id, operation_status, status
+      FROM orders
+      WHERE id = $1
+    `, [id]);
+
+    if (!order) {
+      return res.status(404).json({ error: 'Pedido não encontrado.' });
+    }
+
+    let legacyStatus = order.status || 'novo';
+
+    if (operationStatus === 'aguardando_whatsapp' || operationStatus === 'confirmado') {
+      legacyStatus = 'novo';
+    } else if (operationStatus === 'preparando') {
+      legacyStatus = 'producao';
+    } else if (operationStatus === 'pronto' || operationStatus === 'entregue') {
+      legacyStatus = 'finalizado';
+    } else if (operationStatus === 'cancelado') {
+      legacyStatus = 'cancelado';
+    } else if (operationStatus === 'expirado') {
+      legacyStatus = 'expirado';
+    }
+
+    if (operationStatus === 'confirmado' && order.operation_status !== 'confirmado') {
+      await db.run(`
+        UPDATE orders
+        SET
+          operation_status = $1,
+          status = $2,
+          whatsapp_confirmed_at = COALESCE(whatsapp_confirmed_at, CURRENT_TIMESTAMP)
+        WHERE id = $3
+      `, [operationStatus, legacyStatus, id]);
+    } else {
+      await db.run(`
+        UPDATE orders
+        SET
+          operation_status = $1,
+          status = $2
+        WHERE id = $3
+      `, [operationStatus, legacyStatus, id]);
+    }
+
+    await logAudit(req, 'alterou etapa operacional do pedido', {
+      pedido: id,
+      de: order.operation_status || 'aguardando_whatsapp',
+      para: operationStatus,
+      confirmado_pelo_whatsapp: operationStatus === 'confirmado'
+    });
+
+    res.json({
+      ok: true,
+      operation_status: operationStatus,
+      label: operationStatusLabel(operationStatus)
+    });
+  } catch (error) {
+    console.error('Erro ao alterar status operacional:', error);
+    res.status(500).json({ error: 'Erro ao alterar etapa do pedido.' });
+  }
+});
+
+app.post('/api/admin/orders/:id/restore-operation', requireAuth, async (req, res) => {
+  try {
+    const db = await getDb();
+    const id = Number(req.params.id);
+
+    if (!id) return res.status(400).json({ error: 'Pedido inválido.' });
+
+    const order = await db.get(`
+      SELECT id, operation_status, status
+      FROM orders
+      WHERE id = $1
+    `, [id]);
+
+    if (!order) return res.status(404).json({ error: 'Pedido não encontrado.' });
+
+    await db.run(`
+      UPDATE orders
+      SET
+        operation_status = 'aguardando_whatsapp',
+        status = 'novo',
+        whatsapp_confirmed_at = NULL
+      WHERE id = $1
+    `, [id]);
+
+    await logAudit(req, 'retornou pedido para a operação', {
+      pedido: id,
+      de: order.operation_status || order.status || 'desconhecido',
+      para: 'aguardando_whatsapp'
+    });
+
+    res.json({ ok: true, operation_status: 'aguardando_whatsapp' });
+  } catch (error) {
+    console.error('Erro ao retornar pedido para operação:', error);
+    res.status(500).json({ error: 'Não foi possível retornar o pedido para a operação.' });
+  }
 });
 
 // ================= IMPRESSÃO DE PEDIDOS =================

@@ -98,6 +98,8 @@ async function getDb() {
       note TEXT,
       total REAL,
       status TEXT DEFAULT 'novo',
+      operation_status TEXT DEFAULT 'aguardando_whatsapp',
+      whatsapp_confirmed_at TIMESTAMP,
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     );
 
@@ -106,7 +108,10 @@ async function getDb() {
       order_id INTEGER,
       product_name TEXT,
       quantity INTEGER,
-      price REAL
+      price REAL,
+      unit_price REAL,
+      selected_options JSONB DEFAULT '[]'::jsonb,
+      item_note TEXT
     );
 
     CREATE TABLE IF NOT EXISTS access_logs (
@@ -194,6 +199,23 @@ async function getDb() {
     ALTER TABLE orders ADD COLUMN IF NOT EXISTS printed_at TIMESTAMP;
     ALTER TABLE orders ADD COLUMN IF NOT EXISTS reprint_requested BOOLEAN DEFAULT FALSE;
     ALTER TABLE orders ADD COLUMN IF NOT EXISTS reprint_requested_at TIMESTAMP;
+    ALTER TABLE orders ADD COLUMN IF NOT EXISTS payment_status TEXT DEFAULT 'aguardando_pagamento';
+    ALTER TABLE orders ADD COLUMN IF NOT EXISTS paid_at TIMESTAMP;
+    ALTER TABLE order_items ADD COLUMN IF NOT EXISTS unit_price REAL;
+    ALTER TABLE order_items ADD COLUMN IF NOT EXISTS selected_options JSONB DEFAULT '[]'::jsonb;
+    ALTER TABLE order_items ADD COLUMN IF NOT EXISTS item_note TEXT;
+    ALTER TABLE orders ADD COLUMN IF NOT EXISTS operation_status TEXT DEFAULT 'aguardando_whatsapp';
+    ALTER TABLE orders ADD COLUMN IF NOT EXISTS whatsapp_confirmed_at TIMESTAMP;
+
+    UPDATE orders
+    SET operation_status = CASE
+      WHEN status = 'producao' THEN 'preparando'
+      WHEN status = 'finalizado' THEN 'entregue'
+      WHEN status = 'cancelado' THEN 'cancelado'
+      ELSE 'aguardando_whatsapp'
+    END
+    WHERE operation_status = 'aguardando_whatsapp'
+      AND status IN ('producao', 'finalizado', 'cancelado');
       
   
     `);
