@@ -2355,14 +2355,21 @@ app.put('/api/admin/orders/:id/operation-status', requireAuth, async (req, res) 
     }
 
     if (operationStatus === 'confirmado' && order.operation_status !== 'confirmado') {
+      const params = [operationStatus, legacyStatus, id];
+      const shouldQueueInitialPrint = (order.operation_status || 'aguardando_whatsapp') === 'aguardando_whatsapp';
+
       await db.run(`
         UPDATE orders
         SET
           operation_status = $1,
           status = $2,
-          whatsapp_confirmed_at = COALESCE(whatsapp_confirmed_at, CURRENT_TIMESTAMP)
+          whatsapp_confirmed_at = COALESCE(whatsapp_confirmed_at, CURRENT_TIMESTAMP),
+          is_printed = CASE WHEN $4 THEN FALSE ELSE COALESCE(is_printed, FALSE) END,
+          printed_at = CASE WHEN $4 THEN NULL ELSE printed_at END,
+          reprint_requested = CASE WHEN $4 THEN FALSE ELSE COALESCE(reprint_requested, FALSE) END,
+          reprint_requested_at = CASE WHEN $4 THEN NULL ELSE reprint_requested_at END
         WHERE id = $3
-      `, [operationStatus, legacyStatus, id]);
+      `, [...params, shouldQueueInitialPrint]);
     } else {
       await db.run(`
         UPDATE orders
@@ -2411,7 +2418,11 @@ app.post('/api/admin/orders/:id/restore-operation', requireAuth, async (req, res
       SET
         operation_status = 'aguardando_whatsapp',
         status = 'novo',
-        whatsapp_confirmed_at = NULL
+        whatsapp_confirmed_at = NULL,
+        is_printed = FALSE,
+        printed_at = NULL,
+        reprint_requested = FALSE,
+        reprint_requested_at = NULL
       WHERE id = $1
     `, [id]);
 
@@ -2450,15 +2461,81 @@ function requirePrintAgent(req, res, next) {
   next();
 }
 
+function parsePrintableOptions(value) {
+  if (Array.isArray(value)) return value;
+  if (typeof value === 'string' && value.trim()) {
+    try {
+      const parsed = JSON.parse(value);
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
+      return [];
+    }
+  }
+  return [];
+}
+
+function buildPrintableOrder(order) {
+  const items = Array.isArray(order.items) ? order.items : [];
+  const printLines = [];
+
+  printLines.push(`PEDIDO #${order.id}`);
+  printLines.push(`Cliente: ${order.customer_name || 'Não informado'}`);
+  if (order.customer_phone) printLines.push(`Telefone: ${order.customer_phone}`);
+  if (order.address) printLines.push(`Entrega/retirada: ${order.address}`);
+  if (order.payment) printLines.push(`Pagamento: ${order.payment}`);
+  printLines.push('');
+  printLines.push('ITENS');
+
+  for (const item of items) {
+    const quantity = Number(item.quantity || 0);
+    const unitPrice = Number(item.unit_price ?? item.price ?? 0);
+    const subtotal = unitPrice * quantity;
+    printLines.push(`${quantity}x ${item.product_name || 'Produto'} - R$ ${subtotal.toFixed(2).replace('.', ',')}`);
+
+    const options = parsePrintableOptions(item.selected_options);
+    for (const option of options) {
+      const adjustment = Number(option.price_adjustment || 0);
+      const adjustmentText = adjustment > 0
+        ? ` (+R$ ${adjustment.toFixed(2).replace('.', ',')})`
+        : '';
+      printLines.push(`  + ${option.name || 'Opção'}${adjustmentText}`);
+    }
+
+    if (item.item_note) {
+      printLines.push(`  OBS.: ${String(item.item_note).trim()}`);
+    }
+  }
+
+  if (order.note) {
+    printLines.push('');
+    printLines.push(`OBS. GERAL: ${String(order.note).trim()}`);
+  }
+
+  printLines.push('');
+  printLines.push(`TOTAL: R$ ${Number(order.total || 0).toFixed(2).replace('.', ',')}`);
+
+  return {
+    ...order,
+    print_reason: order.reprint_requested ? 'reimpressao' : 'confirmacao_whatsapp',
+    print_lines: printLines,
+    print_text: printLines.join('\n')
+  };
+}
+
 app.get('/api/admin/orders/to-print', requirePrintAgent, async (req, res) => {
   try {
     const db = await getDb();
 
+    // IMPORTANTE: somente pedidos confirmados pelo WhatsApp (ou etapas posteriores)
+    // entram na fila da impressora. Um pedido recém-criado fica fora da fila.
     const orders = await db.all(`
       SELECT *
       FROM orders
       WHERE
-        status NOT IN ('cancelado', 'expirado')
+        COALESCE(operation_status, 'aguardando_whatsapp') IN (
+          'confirmado', 'preparando', 'pronto', 'entregue'
+        )
+        AND status NOT IN ('cancelado', 'expirado')
         AND (
           COALESCE(is_printed, FALSE) = FALSE
           OR COALESCE(reprint_requested, FALSE) = TRUE
@@ -2469,11 +2546,20 @@ app.get('/api/admin/orders/to-print', requirePrintAgent, async (req, res) => {
 
     for (const order of orders) {
       order.items = await db.all(`
-        SELECT *
+        SELECT
+          id,
+          product_name,
+          quantity,
+          price,
+          unit_price,
+          selected_options,
+          item_note
         FROM order_items
         WHERE order_id = $1
         ORDER BY id ASC
       `, [order.id]);
+
+      Object.assign(order, buildPrintableOrder(order));
     }
 
     res.json({ ok: true, orders });
@@ -2527,7 +2613,7 @@ app.post('/api/admin/orders/:id/reprint', requireAuth, async (req, res) => {
     }
 
     const order = await db.get(`
-      SELECT id
+      SELECT id, operation_status, status
       FROM orders
       WHERE id = $1
     `, [id]);
@@ -2535,6 +2621,12 @@ app.post('/api/admin/orders/:id/reprint', requireAuth, async (req, res) => {
     if (!order) {
       return res.status(404).json({
         error: 'Pedido não encontrado.'
+      });
+    }
+
+    if (!['confirmado', 'preparando', 'pronto', 'entregue'].includes(order.operation_status)) {
+      return res.status(400).json({
+        error: 'Só é possível imprimir ou reimprimir um pedido que já foi confirmado pelo WhatsApp.'
       });
     }
 
