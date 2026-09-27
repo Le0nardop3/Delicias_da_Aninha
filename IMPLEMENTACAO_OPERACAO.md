@@ -78,3 +78,19 @@ Antes do lançamento, vale testar o fluxo completo com um pedido real de teste e
 - Pedidos em `aguardando_whatsapp` expiram automaticamente após `ORDER_WHATSAPP_EXPIRATION_MINUTES` minutos; padrão: 60.
 - Pedidos expirados saem da operação ativa para não poluir o Kanban.
 - No painel antigo de Pedidos, pedidos cancelados/expirados podem ser retornados para a operação pelo botão **Voltar para operação**.
+
+### Impressão após confirmação do WhatsApp
+
+A fila da impressora foi ajustada para não aceitar pedidos em `aguardando_whatsapp`. O pedido só entra na fila de impressão quando o operador confirma o recebimento da mensagem no WhatsApp, passando para `confirmado`.
+
+A resposta da fila de impressão também passou a incluir `print_lines` e `print_text`, com:
+- produtos e quantidades;
+- opções/adicionais escolhidos;
+- observações específicas de cada item;
+- observação geral do pedido;
+- total;
+- cliente, telefone, entrega/retirada e forma de pagamento.
+
+A reimpressão também foi bloqueada para pedidos que ainda não foram confirmados pelo WhatsApp.
+
+> Observação: o código do agente físico de impressão não está neste projeto. O backend agora entrega os detalhes completos na fila; se o agente local tiver um formatador próprio, ele deve usar `order.items[].selected_options`, `order.items[].item_note` ou os campos `print_lines`/`print_text` para colocar esses detalhes no ticket.
