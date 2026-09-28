@@ -2526,25 +2526,48 @@ app.get('/api/admin/orders/to-print', requirePrintAgent, async (req, res) => {
   try {
     const db = await getDb();
 
-    // IMPORTANTE: somente pedidos confirmados pelo WhatsApp (ou etapas posteriores)
-    // entram na fila da impressora. Um pedido recém-criado fica fora da fila.
+    /*
+     * FILA DE IMPRESSÃO
+     *
+     * Existem dois casos:
+     *
+     * 1. IMPRESSÃO INICIAL
+     *    - Pedido acabou de ser confirmado pelo WhatsApp
+     *    - operation_status = confirmado
+     *    - ainda não foi impresso
+     *
+     * 2. REIMPRESSÃO
+     *    - Pedido já foi impresso anteriormente
+     *    - funcionário solicitou explicitamente uma reimpressão
+     *
+     * Pedidos preparando/pronto/entregue NÃO entram
+     * automaticamente na fila.
+     *
+     * Isso evita que pedidos antigos ou finalizados
+     * fiquem sendo devolvidos ao agente.
+     */
+
     const orders = await db.all(`
       SELECT *
       FROM orders
       WHERE
-        COALESCE(operation_status, 'aguardando_whatsapp') IN (
-          'confirmado', 'preparando', 'pronto', 'entregue'
-        )
-        AND status NOT IN ('cancelado', 'expirado')
+        status NOT IN ('cancelado', 'expirado')
         AND (
-          COALESCE(is_printed, FALSE) = FALSE
-          OR COALESCE(reprint_requested, FALSE) = TRUE
+          (
+            operation_status = 'confirmado'
+            AND COALESCE(is_printed, FALSE) = FALSE
+          )
+          OR
+          (
+            COALESCE(reprint_requested, FALSE) = TRUE
+          )
         )
       ORDER BY id ASC
       LIMIT 10
     `);
 
     for (const order of orders) {
+
       order.items = await db.all(`
         SELECT
           id,
@@ -2559,17 +2582,31 @@ app.get('/api/admin/orders/to-print', requirePrintAgent, async (req, res) => {
         ORDER BY id ASC
       `, [order.id]);
 
-      Object.assign(order, buildPrintableOrder(order));
+      Object.assign(
+        order,
+        buildPrintableOrder(order)
+      );
     }
 
-    res.json({ ok: true, orders });
+    res.json({
+      ok: true,
+      orders
+    });
+
   } catch (error) {
-    console.error('Erro ao buscar pedidos para impressão:', error);
+
+    console.error(
+      'Erro ao buscar pedidos para impressão:',
+      error
+    );
+
     res.status(500).json({
       error: 'Erro ao buscar pedidos para impressão.'
     });
   }
 });
+
+
 
 app.post('/api/admin/orders/:id/printed', requirePrintAgent, async (req, res) => {
   try {
