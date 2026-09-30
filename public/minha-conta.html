@@ -408,6 +408,9 @@
       }
     }
 
+  
+    .payment-status.aguardando_confirmacao { background: #fff1cc; color: #7a5200; }
+    .payment-status.pagamento_na_entrega { background: #e8f1ff; color: #174f8a; }
   </style>
 </head>
 <body>
@@ -420,6 +423,7 @@
       </div>
 
       <div class="account-actions">
+        <button type="button" class="order-guide-trigger account-guide-btn" onclick="openOrderGuide()">? <span>Guia do pedido</span></button>
         <a href="/" class="back-btn">Voltar para loja</a>
         <button id="logoutBtn" class="logout-btn">Sair</button>
       </div>
@@ -468,6 +472,23 @@
       </section>
     </section>
   </main>
+
+  <div class="order-guide-overlay" id="orderGuideModal" aria-hidden="true">
+    <div class="order-guide-card" role="dialog" aria-modal="true" aria-labelledby="orderGuideTitle">
+      <div class="order-guide-head"><div><span class="order-guide-kicker">AJUDA RÁPIDA</span><h2 id="orderGuideTitle">Como funciona seu pedido?</h2></div><button type="button" class="order-guide-close" onclick="closeOrderGuide()" aria-label="Fechar">×</button></div>
+      <div class="order-guide-steps">
+        <div class="order-guide-step"><b>1</b><div><strong>Escolha seus produtos</strong><p>Adicione os produtos e adicionais que desejar à sacola.</p></div></div>
+        <div class="order-guide-step"><b>2</b><div><strong>Informe seu endereço</strong><p>Na finalização, informe ou selecione o endereço de entrega.</p></div></div>
+        <div class="order-guide-step"><b>3</b><div><strong>Taxa de entrega</strong><p>O total do site considera os produtos. A taxa de entrega será calculada e confirmada pelo WhatsApp conforme o endereço.</p></div></div>
+        <div class="order-guide-step"><b>4</b><div><strong>Envie pelo WhatsApp</strong><p>Depois de finalizar no site, toque em “Enviar pelo WhatsApp”. Esse passo é necessário para efetivar o pedido.</p></div></div>
+        <div class="order-guide-step"><b>5</b><div><strong>Acompanhe a confirmação</strong><p>Após a confirmação da equipe, acompanhe o andamento em Minha Conta → Meus pedidos.</p></div></div>
+      </div>
+      <div class="order-guide-note"><strong>Não conseguiu enviar pelo WhatsApp?</strong><span>Enquanto o pedido estiver válido, abra Meus pedidos e use “Reenviar pelo WhatsApp”. Não é necessário criar outro pedido.</span></div>
+      <div class="order-guide-status"><strong>Entenda os status</strong><p><b>Aguardando WhatsApp:</b> falta enviar/confirmar • <b>Pedido confirmado:</b> recebido pela equipe • <b>Em preparo:</b> sendo preparado • <b>Pronto:</b> pronto para entrega/retirada • <b>Entregue:</b> concluído.</p></div>
+      <button type="button" class="order-guide-ok" onclick="closeOrderGuide()">Entendi</button>
+    </div>
+  </div>
+  <script src="order-guide.js"></script>
 
   <script>
     const customerName = document.getElementById('customerName');
@@ -583,16 +604,36 @@
       return map[status] || status || 'Aguardando confirmação';
     }
 
-    function paymentStatusLabel(status) {
+    function customerPaymentStatus(order) {
+      const operation = order.operation_status || order.status || 'aguardando_whatsapp';
+      const payment = String(order.payment || '').toLowerCase();
+      const stored = order.payment_status || 'aguardando_pagamento';
+
+      // Antes da confirmação no WhatsApp, o pedido ainda nem foi efetivado.
+      if (operation === 'aguardando_whatsapp') {
+        return { key: 'aguardando_confirmacao', label: 'Aguardando confirmação do pedido' };
+      }
+      if (operation === 'expirado') {
+        return { key: 'cancelado', label: 'Pedido expirado' };
+      }
+      if (operation === 'cancelado') {
+        return { key: 'cancelado', label: 'Pedido cancelado' };
+      }
+      if (stored === 'pago') {
+        return { key: 'pago', label: 'Pago' };
+      }
+      if (payment.includes('dinheiro') || payment.includes('cartão') || payment.includes('cartao')) {
+        return { key: 'pagamento_na_entrega', label: 'Pagamento na entrega' };
+      }
+
       const map = {
-        pago: 'Pago',
         aguardando_pagamento: 'Aguardando pagamento',
+        pagamento_na_entrega: 'Pagamento na entrega',
         pendente: 'Pendente',
         recusado: 'Recusado',
         cancelado: 'Cancelado'
       };
-
-      return map[status] || 'Aguardando pagamento';
+      return { key: stored, label: map[stored] || 'Aguardando pagamento' };
     }
 
     function gerarMensagemPedidoExistente(order) {
@@ -703,6 +744,7 @@
         const itemsHtml = (order.items || [])
           .map(renderAccountOrderItem)
           .join('');
+        const paymentView = customerPaymentStatus(order);
 
         div.innerHTML = `
           <div class="order-top">
@@ -724,8 +766,8 @@
             <span>
               Pagamento: ${order.payment || '-'}<br>
               Status do pagamento:
-              <strong class="payment-status ${order.payment_status || 'aguardando_pagamento'}">
-                ${paymentStatusLabel(order.payment_status)}
+              <strong class="payment-status ${escapeHtml(paymentView.key)}">
+                ${escapeHtml(paymentView.label)}
               </strong>
               ${order.paid_at ? `<br>Pago em: ${formatDate(order.paid_at)}` : ''}
             </span>

@@ -19,6 +19,7 @@
       <a href="#cardapio">Cardápio</a>
       <a href="#especiais">Especiais</a>
       <a href="#beneficios">Como funciona</a>
+      <button type="button" class="order-guide-trigger order-guide-nav" onclick="openOrderGuide()" aria-label="Abrir guia do pedido">? <span>Guia do pedido</span></button>
     </nav>
 
     <div class="header-buttons">
@@ -340,6 +341,23 @@
 
     </div>
   </div>
+
+  <div class="order-guide-overlay" id="orderGuideModal" aria-hidden="true">
+    <div class="order-guide-card" role="dialog" aria-modal="true" aria-labelledby="orderGuideTitle">
+      <div class="order-guide-head"><div><span class="order-guide-kicker">AJUDA RÁPIDA</span><h2 id="orderGuideTitle">Como funciona seu pedido?</h2></div><button type="button" class="order-guide-close" onclick="closeOrderGuide()" aria-label="Fechar">×</button></div>
+      <div class="order-guide-steps">
+        <div class="order-guide-step"><b>1</b><div><strong>Escolha seus produtos</strong><p>Adicione os produtos e adicionais que desejar à sacola.</p></div></div>
+        <div class="order-guide-step"><b>2</b><div><strong>Informe seu endereço</strong><p>Na finalização, informe ou selecione o endereço de entrega.</p></div></div>
+        <div class="order-guide-step"><b>3</b><div><strong>Taxa de entrega</strong><p>O total do site considera os produtos. A taxa de entrega será calculada e confirmada pelo WhatsApp conforme o endereço.</p></div></div>
+        <div class="order-guide-step"><b>4</b><div><strong>Envie pelo WhatsApp</strong><p>Depois de finalizar no site, toque em “Enviar pelo WhatsApp”. Esse passo é necessário para efetivar o pedido.</p></div></div>
+        <div class="order-guide-step"><b>5</b><div><strong>Acompanhe a confirmação</strong><p>Após a confirmação da equipe, acompanhe o andamento em Minha Conta → Meus pedidos.</p></div></div>
+      </div>
+      <div class="order-guide-note"><strong>Não conseguiu enviar pelo WhatsApp?</strong><span>Enquanto o pedido estiver válido, abra Meus pedidos e use “Reenviar pelo WhatsApp”. Não é necessário criar outro pedido.</span></div>
+      <div class="order-guide-status"><strong>Entenda os status</strong><p><b>Aguardando WhatsApp:</b> falta enviar/confirmar • <b>Pedido confirmado:</b> recebido pela equipe • <b>Em preparo:</b> sendo preparado • <b>Pronto:</b> pronto para entrega/retirada • <b>Entregue:</b> concluído.</p></div>
+      <button type="button" class="order-guide-ok" onclick="closeOrderGuide()">Entendi</button>
+    </div>
+  </div>
+  <script src="order-guide.js"></script>
   <script src="app.js"></script>
   <script>
     const openCartHero = document.getElementById('openCartHero');
