@@ -2098,9 +2098,10 @@ app.post('/api/orders', async (req, res) => {
         payment,
         note,
         total,
-        operation_status
+        operation_status,
+        payment_status
       )
-      VALUES ($1, $2, $3, $4, $5, $6, $7, 'aguardando_whatsapp')
+      VALUES ($1, $2, $3, $4, $5, $6, $7, 'aguardando_whatsapp', $8)
       RETURNING id
     `, [
       customerId,
@@ -2109,7 +2110,8 @@ app.post('/api/orders', async (req, res) => {
       String(address || '').trim(),
       String(payment || '').trim(),
       String(note || '').trim(),
-      total
+      total,
+      /dinheiro|cart[aã]o/i.test(String(payment || '')) ? 'pagamento_na_entrega' : 'aguardando_pagamento'
     ]);
 
     const orderId = result.id;

@@ -119,8 +119,41 @@ function addSimpleProductToCart(product) {
   }
 
   renderCart();
+  showAddedToCartChoice();
+}
 
-  document.getElementById('cart').classList.add('open');
+function showAddedToCartChoice() {
+  let modal = document.getElementById('addedToCartChoice');
+
+  if (!modal) {
+    modal = document.createElement('div');
+    modal.id = 'addedToCartChoice';
+    modal.className = 'added-choice-overlay';
+    modal.innerHTML = `
+      <div class="added-choice-card" role="dialog" aria-modal="true" aria-labelledby="addedChoiceTitle">
+        <div class="added-choice-icon">✓</div>
+        <h3 id="addedChoiceTitle">Produto adicionado à sacola!</h3>
+        <p>O que você deseja fazer agora?</p>
+        <div class="added-choice-actions">
+          <button type="button" class="added-choice-continue">Continuar comprando</button>
+          <button type="button" class="added-choice-cart">Ir para a sacola</button>
+        </div>
+      </div>`;
+    document.body.appendChild(modal);
+
+    modal.querySelector('.added-choice-continue').addEventListener('click', () => {
+      modal.classList.remove('open');
+    });
+    modal.querySelector('.added-choice-cart').addEventListener('click', () => {
+      modal.classList.remove('open');
+      document.getElementById('cart').classList.add('open');
+    });
+    modal.addEventListener('click', event => {
+      if (event.target === modal) modal.classList.remove('open');
+    });
+  }
+
+  modal.classList.add('open');
 }
 
 
@@ -432,14 +465,19 @@ function confirmCustomizedProduct() {
     cart.push(cartItem);
   }
 
+  const wasEditingCartItem = Boolean(editingCartItemKey);
+
   closeProductCustomization();
 
   renderCart();
 
-  document
-    .getElementById('cart')
-    .classList
-    .add('open');
+  // Ao editar um item já existente, volta para a sacola.
+  // Ao adicionar um novo item, pergunta se o cliente quer continuar comprando.
+  if (wasEditingCartItem) {
+    document.getElementById('cart').classList.add('open');
+  } else {
+    showAddedToCartChoice();
+  }
 }
 
 function changeQty(cartKey, delta) {
