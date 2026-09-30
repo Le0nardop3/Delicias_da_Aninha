@@ -411,6 +411,16 @@
   
     .payment-status.aguardando_confirmacao { background: #fff1cc; color: #7a5200; }
     .payment-status.pagamento_na_entrega { background: #e8f1ff; color: #174f8a; }
+
+    /* Atalhos flutuantes: Guia + WhatsApp */
+    .floating-help-actions{position:fixed;right:18px;bottom:18px;z-index:9000;display:flex;flex-direction:column;gap:10px;align-items:center}
+    .floating-help-btn{width:54px;height:54px;border-radius:50%;display:grid;place-items:center;border:0;text-decoration:none;box-shadow:0 7px 22px rgba(0,0,0,.20);cursor:pointer;transition:transform .18s ease,box-shadow .18s ease;font-family:inherit}
+    .floating-help-btn:hover{transform:translateY(-2px);box-shadow:0 9px 25px rgba(0,0,0,.25)}
+    .floating-guide-btn{background:#9f1d3b;color:#fff;font-size:24px;font-weight:900}
+    .floating-whatsapp-btn{background:#25D366;color:#fff}
+    .floating-whatsapp-btn svg{width:29px;height:29px}
+    body.guide-open .floating-help-actions{display:none}
+    @media(max-width:600px){.floating-help-actions{right:12px;bottom:calc(12px + env(safe-area-inset-bottom));gap:8px}.floating-help-btn{width:48px;height:48px}.floating-guide-btn{font-size:21px}.floating-whatsapp-btn svg{width:26px;height:26px}}
   </style>
 </head>
 <body>
@@ -423,7 +433,6 @@
       </div>
 
       <div class="account-actions">
-        <button type="button" class="order-guide-trigger account-guide-btn" onclick="openOrderGuide()">? <span>Guia do pedido</span></button>
         <a href="/" class="back-btn">Voltar para loja</a>
         <button id="logoutBtn" class="logout-btn">Sair</button>
       </div>
@@ -472,6 +481,13 @@
       </section>
     </section>
   </main>
+
+  <div class="floating-help-actions" aria-label="Atalhos de atendimento">
+    <button type="button" class="floating-help-btn floating-guide-btn" onclick="openOrderGuide()" aria-label="Abrir guia do pedido" title="Guia do pedido">?</button>
+    <a id="floatingWhatsapp" class="floating-help-btn floating-whatsapp-btn" href="#" target="_blank" rel="noopener" aria-label="Falar com a Delícias da Aninha no WhatsApp" title="WhatsApp">
+      <svg viewBox="0 0 32 32" aria-hidden="true"><path fill="currentColor" d="M19.11 17.21c-.26-.13-1.54-.76-1.78-.85-.24-.09-.41-.13-.59.13-.17.26-.67.85-.82 1.02-.15.17-.3.2-.56.07-.26-.13-1.09-.4-2.08-1.29-.77-.68-1.29-1.53-1.44-1.79-.15-.26-.02-.4.11-.53.12-.12.26-.3.39-.46.13-.15.17-.26.26-.43.09-.17.04-.33-.02-.46-.07-.13-.59-1.41-.8-1.94-.21-.51-.43-.44-.59-.45h-.5c-.17 0-.46.07-.69.33-.24.26-.91.89-.91 2.17 0 1.28.93 2.52 1.06 2.69.13.17 1.83 2.8 4.44 3.93.62.27 1.1.43 1.48.55.62.2 1.19.17 1.64.1.5-.08 1.54-.63 1.76-1.24.22-.61.22-1.13.15-1.24-.06-.11-.24-.17-.5-.3z"/><path fill="currentColor" d="M16.03 3.2A12.68 12.68 0 0 0 5.12 22.32L3.33 28.8l6.64-1.74a12.67 12.67 0 1 0 6.06-23.86zm0 22.99c-2.02 0-4-.54-5.72-1.56l-.41-.24-3.94 1.03 1.05-3.84-.27-.42a10.31 10.31 0 1 1 9.29 5.03z"/></svg>
+    </a>
+  </div>
 
   <div class="order-guide-overlay" id="orderGuideModal" aria-hidden="true">
     <div class="order-guide-card" role="dialog" aria-modal="true" aria-labelledby="orderGuideTitle">
@@ -689,6 +705,10 @@
         if (!response.ok) return;
         const data = await response.json();
         storeWhatsappNumber = String(data.whatsappNumber || '').replace(/\D/g, '');
+        const floatingWhatsapp = document.getElementById('floatingWhatsapp');
+        if (floatingWhatsapp && storeWhatsappNumber) {
+          floatingWhatsapp.href = `https://wa.me/${storeWhatsappNumber}`;
+        }
       } catch (error) {
         console.error('Erro ao carregar configuração da loja:', error);
       }
