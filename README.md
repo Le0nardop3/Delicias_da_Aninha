@@ -60,3 +60,13 @@ ORDER_WHATSAPP_EXPIRATION_MINUTES=60
 ```
 
 Se um pedido expirar ou for cancelado por engano, o painel antigo de **Pedidos** possui o botão **Voltar para operação**, que o devolve para **Aguardando WhatsApp**.
+
+## Ajustes de lançamento - frete e WhatsApp
+
+- O total exibido na sacola agora é identificado como **Total dos produtos**.
+- A sacola avisa que a taxa de entrega não está incluída e será confirmada pelo WhatsApp conforme o endereço.
+- A mensagem enviada ao WhatsApp informa **Taxa de entrega: a confirmar pelo WhatsApp**.
+- O fluxo já existente de registro do pedido como `aguardando_whatsapp` e redirecionamento ao WhatsApp foi preservado.
+- Em **Minha Conta > Meus pedidos**, pedidos ainda em `aguardando_whatsapp` exibem aviso e botão **Reenviar pelo WhatsApp**.
+- O reenvio reutiliza o mesmo número do pedido e não cria um novo pedido.
+- Quando o pedido deixa de estar em `aguardando_whatsapp` (confirmado, expirado, cancelado etc.), o botão deixa de aparecer.

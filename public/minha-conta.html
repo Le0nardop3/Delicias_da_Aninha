@@ -301,6 +301,39 @@
       color: #374151;
     }
 
+    .whatsapp-reminder {
+      margin: 14px 0 4px;
+      padding: 14px 16px;
+      border-radius: 14px;
+      background: #fff8e8;
+      border: 1px solid #f1d18a;
+      color: #65480f;
+      line-height: 1.45;
+    }
+
+    .whatsapp-reminder strong { display: block; margin-bottom: 5px; }
+    .whatsapp-reminder p { margin: 0 0 10px; font-size: 13px; }
+
+    .whatsapp-resend-btn {
+      display: inline-block;
+      border: 0;
+      border-radius: 999px;
+      padding: 10px 15px;
+      background: #25D366;
+      color: #fff;
+      font-weight: 800;
+      cursor: pointer;
+      text-decoration: none;
+    }
+
+    .freight-pending-note {
+      display: block;
+      margin-top: 5px;
+      color: #8a5a12;
+      font-size: 12px;
+      font-weight: 700;
+    }
+
     @media(max-width: 850px) {
       .account-page {
         margin: 20px auto;
@@ -445,6 +478,8 @@
     const logoutBtn = document.getElementById('logoutBtn');
     const customerCpf = document.getElementById('customerCpf');
     const customerBirthDate = document.getElementById('customerBirthDate');
+    let storeWhatsappNumber = '';
+    const customerOrdersById = new Map();
 
     function formatMoney(value) {
       return Number(value || 0).toLocaleString('pt-BR', {
@@ -560,6 +595,64 @@
       return map[status] || 'Aguardando pagamento';
     }
 
+    function gerarMensagemPedidoExistente(order) {
+      let msg = `Pedido #${order.id}\n\n`;
+      let total = 0;
+
+      (order.items || []).forEach(item => {
+        const unitPrice = Number(item.unit_price ?? item.price ?? 0);
+        const quantity = Number(item.quantity || 0);
+        const subtotal = quantity * unitPrice;
+        total += subtotal;
+
+        msg += `• ${quantity}x ${item.product_name}\n`;
+
+        parseSelectedOptions(item.selected_options).forEach(option => {
+          msg += `  ↳ ${option.name}`;
+          if (Number(option.price_adjustment || 0) > 0) {
+            msg += ` (+ R$ ${Number(option.price_adjustment).toFixed(2).replace('.', ',')})`;
+          }
+          msg += '\n';
+        });
+
+        if (item.item_note) msg += `  ↳ Obs.: ${item.item_note}\n`;
+        msg += `  ↳ Subtotal: R$ ${subtotal.toFixed(2).replace('.', ',')}\n\n`;
+      });
+
+      msg += `Total dos produtos: R$ ${total.toFixed(2).replace('.', ',')}\n`;
+      msg += `Taxa de entrega: a confirmar pelo WhatsApp\n\n`;
+      msg += `Nome: ${order.customer_name || ''}\n`;
+      msg += `Endereço/Retirada: ${order.address || 'Retirada na loja'}\n`;
+      msg += `Pagamento: ${order.payment || '-'}\n`;
+      msg += `Observação do pedido: ${order.note || 'Nenhuma'}\n`;
+      return msg;
+    }
+
+    function reenviarWhatsApp(orderId) {
+      const order = customerOrdersById.get(Number(orderId));
+      if (!order || order.operation_status !== 'aguardando_whatsapp') {
+        alert('Este pedido não está mais aguardando confirmação pelo WhatsApp.');
+        return;
+      }
+      if (!storeWhatsappNumber) {
+        alert('Não foi possível carregar o WhatsApp da loja. Atualize a página e tente novamente.');
+        return;
+      }
+      const message = gerarMensagemPedidoExistente(order);
+      window.location.href = `https://wa.me/${storeWhatsappNumber}?text=${encodeURIComponent(message)}`;
+    }
+
+    async function carregarConfiguracaoLoja() {
+      try {
+        const response = await fetch('/api/config');
+        if (!response.ok) return;
+        const data = await response.json();
+        storeWhatsappNumber = String(data.whatsappNumber || '').replace(/\D/g, '');
+      } catch (error) {
+        console.error('Erro ao carregar configuração da loja:', error);
+      }
+    }
+
     async function carregarCliente() {
       const response = await fetch('/api/customer/me');
 
@@ -593,6 +686,8 @@
 
       const data = await response.json();
       const orders = data.orders || [];
+      customerOrdersById.clear();
+      orders.forEach(order => customerOrdersById.set(Number(order.id), order));
 
       if (orders.length === 0) {
         ordersList.innerHTML = '<div class="empty">Você ainda não realizou nenhum pedido.</div>';
@@ -634,7 +729,7 @@
               </strong>
               ${order.paid_at ? `<br>Pago em: ${formatDate(order.paid_at)}` : ''}
             </span>
-            <span class="order-total">${formatMoney(order.total)}</span>
+            <span class="order-total">${formatMoney(order.total)}<small class="freight-pending-note">+ taxa de entrega a confirmar</small></span>
           </div>
 
           <div class="order-footer">
@@ -644,6 +739,14 @@
           ${order.note ? `
             <div class="order-footer">
               <span>Obs.: ${escapeHtml(order.note)}</span>
+            </div>
+          ` : ''}
+
+          ${(order.operation_status || order.status) === 'aguardando_whatsapp' ? `
+            <div class="whatsapp-reminder">
+              <strong>📲 Falta enviar este pedido pelo WhatsApp</strong>
+              <p>Para efetivar o pedido, envie a mensagem para a Delícias da Aninha. A taxa de entrega será confirmada no atendimento.</p>
+              <button type="button" class="whatsapp-resend-btn" onclick="reenviarWhatsApp(${Number(order.id)})">Reenviar pelo WhatsApp</button>
             </div>
           ` : ''}
         `;
@@ -661,6 +764,7 @@
     });
 
     document.addEventListener('DOMContentLoaded', async () => {
+      await carregarConfiguracaoLoja();
       await carregarCliente();
       await carregarPedidos();
     });
