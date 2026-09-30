@@ -1956,3 +1956,190 @@ nav .menu a.login-client:hover {
     grid-template-columns: 1fr;
   }
 }
+
+
+/* Aviso temporário de frete - lançamento */
+.delivery-fee-notice {
+  margin: 12px 0 16px;
+  padding: 14px;
+  border-radius: 14px;
+  background: #fff8e8;
+  border: 1px solid #f1d18a;
+  display: flex;
+  gap: 11px;
+  align-items: flex-start;
+  color: #65480f;
+}
+.delivery-fee-icon { font-size: 22px; line-height: 1; }
+.delivery-fee-notice strong { display: block; margin-bottom: 4px; }
+.delivery-fee-notice p { margin: 0; font-size: 13px; line-height: 1.45; }
+
+/* ================= MOBILE POLISH - LANÇAMENTO ================= */
+/* Ajustes conservadores: preservam o layout desktop e compactam a experiência no celular. */
+@media (max-width: 570px) {
+  html, body { overflow-x: hidden; }
+
+  /* Sacola ocupa a viewport útil sem espaçamentos exagerados. */
+  .cart-panel {
+    width: 100%;
+    padding: 18px 16px 22px;
+  }
+  .cart-header { margin-bottom: 10px; }
+  .cart-header h2 { font-size: 22px; }
+  .cart-header button {
+    width: 40px;
+    height: 40px;
+    font-size: 26px;
+  }
+  .cart-item {
+    gap: 8px;
+    padding: 11px 0;
+  }
+  .cart-item > div:first-child { min-width: 0; }
+  .cart-item strong { font-size: 14px; line-height: 1.2; }
+  .cart-item small, .cart-item-options { font-size: 11px; line-height: 1.3; }
+  .cart-actions { gap: 6px; }
+  .cart-actions button {
+    width: 27px;
+    height: 27px;
+    border-radius: 8px;
+  }
+  .cart-total {
+    font-size: 20px;
+    line-height: 1.2;
+    margin: 16px 0;
+    overflow-wrap: anywhere;
+  }
+  .delivery-fee-notice {
+    margin: 10px 0 12px;
+    padding: 12px;
+    gap: 9px;
+  }
+  .delivery-fee-icon { font-size: 19px; }
+  .delivery-fee-notice strong { font-size: 13px; }
+  .delivery-fee-notice p { font-size: 11px; line-height: 1.4; }
+  .checkout { gap: 9px; }
+  .checkout input,
+  .checkout select,
+  .checkout textarea {
+    padding: 11px;
+    font-size: 14px;
+  }
+  .checkout textarea { height: 72px; }
+
+  /* Modal de adicionais/subitens: vira uma folha compacta e rolável. */
+  .product-customization-panel {
+    max-height: 92dvh;
+    border-radius: 22px 22px 0 0;
+  }
+  .customization-header {
+    padding: 13px 16px 11px;
+    gap: 10px;
+    flex-shrink: 0;
+  }
+  .customization-category { font-size: 10px; }
+  .customization-header h2 {
+    font-size: 18px;
+    line-height: 1.15;
+    margin-top: 2px;
+  }
+  .customization-close {
+    width: 36px;
+    height: 36px;
+    font-size: 24px;
+    border-radius: 10px;
+    flex: 0 0 auto;
+  }
+  .customization-content {
+    padding: 12px 16px;
+    overscroll-behavior: contain;
+  }
+  .customization-description {
+    font-size: 12px;
+    line-height: 1.35;
+    margin-bottom: 11px;
+  }
+  .option-group { margin-bottom: 13px; }
+  .option-group-header { margin-bottom: 6px; }
+  .option-group-header strong { font-size: 14px; line-height: 1.2; }
+  .option-group-header span { font-size: 10px; }
+  .option-row {
+    gap: 8px;
+    padding: 9px 10px;
+    min-height: 42px;
+    margin-bottom: 6px;
+    border-radius: 11px;
+  }
+  .option-row input {
+    width: 16px;
+    height: 16px;
+    flex: 0 0 auto;
+  }
+  .option-row strong { font-size: 12px; line-height: 1.2; }
+  .option-row span { font-size: 11px; white-space: nowrap; }
+  .customization-note-box { gap: 5px; }
+  .customization-note-box label { font-size: 12px; }
+  .customization-note-box span { font-size: 10px; }
+  .customization-note-box textarea {
+    min-height: 58px;
+    padding: 10px;
+    font-size: 12px;
+    border-radius: 11px;
+  }
+  .customization-footer {
+    grid-template-columns: auto minmax(0, 1fr);
+    align-items: center;
+    padding: 10px 16px calc(10px + env(safe-area-inset-bottom));
+    gap: 10px;
+    flex-shrink: 0;
+    box-shadow: 0 -8px 20px rgba(20, 9, 2, .06);
+  }
+  .customization-quantity {
+    justify-content: flex-start;
+    gap: 7px;
+  }
+  .customization-quantity button {
+    width: 32px;
+    height: 32px;
+    font-size: 18px;
+    border-radius: 9px;
+  }
+  .customization-add-button {
+    min-height: 42px;
+    padding: 10px 11px;
+    font-size: 12px;
+    line-height: 1.15;
+  }
+
+  /* Cards: mantém duas colunas, mas impede preço/botão de se esmagarem. */
+  .product-footer { align-items: flex-end; }
+  .add { max-width: 48%; }
+}
+
+@media (max-width: 380px) {
+  .header { padding-left: 3%; padding-right: 3%; }
+  .logo { font-size: 17px; }
+  .header-buttons { gap: 5px; }
+  .header-buttons .btn-enter,
+  .header-buttons .cart-button {
+    min-width: 58px;
+    height: 38px;
+    padding: 7px 9px;
+    font-size: 11px;
+  }
+  .products { gap: 9px; }
+  .product-img { height: 116px; }
+  .product-body { padding: 11px; }
+  .product h3 { font-size: 14px; }
+  .price { font-size: 16px; }
+  .add {
+    padding: 8px 7px;
+    font-size: 10px;
+    max-width: 50%;
+  }
+  .cart-panel { padding-left: 13px; padding-right: 13px; }
+  .cart-total { font-size: 18px; }
+  .customization-header,
+  .customization-content { padding-left: 13px; padding-right: 13px; }
+  .customization-footer { padding-left: 13px; padding-right: 13px; }
+}

@@ -1196,9 +1196,6 @@ async function sendOrder(event) {
     window.location.assign(url);
 
   } catch (err) {
-    if (whatsappWindow && !whatsappWindow.closed) {
-      whatsappWindow.close();
-    }
     alert('Erro ao processar pedido');
     console.error(err);
   }
@@ -1251,9 +1248,10 @@ function gerarMensagem(cart, orderId, name, address, payment, note) {
 
   // ================= TOTAL =================
 
-  msg += `Total: R$ ${total
+  msg += `Total dos produtos: R$ ${total
     .toFixed(2)
-    .replace('.', ',')}\n\n`;
+    .replace('.', ',')}\n`;
+  msg += `Taxa de entrega: a confirmar pelo WhatsApp\n\n`;
 
   // ================= DADOS DO CLIENTE =================
 
