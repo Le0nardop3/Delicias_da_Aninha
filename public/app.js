@@ -21,7 +21,11 @@ async function loadData() {
     fetch('/api/products')
   ]);
   const config = await configRes.json();
-  whatsappNumber = config.whatsappNumber;
+  whatsappNumber = String(config.whatsappNumber || '').replace(/\D/g, '');
+  const floatingWhatsapp = document.getElementById('floatingWhatsapp');
+  if (floatingWhatsapp && whatsappNumber) {
+    floatingWhatsapp.href = `https://wa.me/${whatsappNumber}`;
+  }
   isStoreOpen = Number(config.isOpen) === 1;
   categories = await catRes.json();
   products = await prodRes.json();
