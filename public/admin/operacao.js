@@ -6,6 +6,64 @@ let refreshTimer = null;
 let currentView = 'kanban';
 let expirationMinutes = 60;
 
+// O controle utiliza o mesmo estado de abertura do painel administrativo.
+let storeIsOpen = null;
+let storeToggleBusy = false;
+
+function renderStoreToggle() {
+  const label = document.getElementById('storeStatusText');
+  const button = document.getElementById('storeToggleBtn');
+  const wrapper = document.getElementById('storeToggle');
+  if (!label || !button || !wrapper) return;
+  wrapper.classList.toggle('store-open', storeIsOpen === true);
+  wrapper.classList.toggle('store-closed', storeIsOpen === false);
+  label.textContent = storeIsOpen === null ? 'Status indisponível' : (storeIsOpen ? '● Loja aberta' : '● Loja fechada');
+  button.textContent = storeToggleBusy ? 'Aguarde...' : storeIsOpen === null ? 'Indisponível' : storeIsOpen ? 'Fechar loja' : 'Abrir loja';
+  button.disabled = storeToggleBusy || storeIsOpen === null;
+}
+
+async function loadStoreStatus() {
+  if (storeToggleBusy) return;
+  try {
+    const response = await fetch('/api/admin/operation/store-status', { cache: 'no-store' });
+    if (!response.ok) throw new Error('Não foi possível consultar o estado da loja.');
+    const data = await response.json();
+    storeIsOpen = data.is_open === true;
+  } catch (error) {
+    console.error('Erro ao atualizar estado da loja:', error);
+    storeIsOpen = null;
+  }
+  renderStoreToggle();
+}
+
+async function toggleStoreStatus() {
+  if (storeToggleBusy || storeIsOpen === null) return;
+  const nextState = !storeIsOpen;
+  const message = nextState
+    ? 'Deseja ABRIR a loja e permitir novos pedidos?'
+    : 'Deseja FECHAR a loja para novos pedidos? Os pedidos em andamento continuarão disponíveis.';
+  if (!window.confirm(message)) return;
+  storeToggleBusy = true;
+  renderStoreToggle();
+  try {
+    const response = await fetch('/api/admin/operation/store-status', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ is_open: nextState })
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(data.error || 'Erro ao alterar estado da loja.');
+    storeIsOpen = data.is_open === true;
+    showToast(storeIsOpen ? 'Loja aberta para pedidos.' : 'Loja fechada para novos pedidos.');
+  } catch (error) {
+    alert(error.message || 'Não foi possível alterar o estado da loja.');
+    await loadStoreStatus();
+  } finally {
+    storeToggleBusy = false;
+    renderStoreToggle();
+  }
+}
+
 const STATUS = {
   aguardando_whatsapp: {
     label: 'Aguardando WhatsApp',
@@ -498,3 +556,9 @@ window.addEventListener('beforeunload', () => clearInterval(refreshTimer));
 
 loadOrders();
 refreshTimer = setInterval(() => loadOrders(), 5000);
+
+// O painel administrativo também pode mudar o estado: atualiza periodicamente.
+document.getElementById('storeToggleBtn').addEventListener('click', toggleStoreStatus);
+loadStoreStatus();
+const storeStatusTimer = setInterval(loadStoreStatus, 15000);
+window.addEventListener('beforeunload', () => clearInterval(storeStatusTimer));

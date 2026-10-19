@@ -294,3 +294,14 @@ button, a { -webkit-tap-highlight-color: transparent; }
 }
 
 .expiration-info{display:block;margin-top:6px;color:#7a5a00;font-weight:600}.action-main{white-space:normal}.danger{font-weight:700}
+
+/* Controle de abertura da loja, sincronizado com as configurações do painel. */
+.store-toggle { display: flex; gap: 8px; align-items: center; padding: 5px 7px; border: 1px solid var(--border); border-radius: 12px; background: #fff; }
+.store-status-label { white-space: nowrap; font-size: 12px; font-weight: 850; color: var(--muted); }
+.store-toggle.store-open .store-status-label { color: #167347; }
+.store-toggle.store-closed .store-status-label { color: #af3636; }
+.store-toggle .store-action { white-space: nowrap; }
+.store-toggle.store-open .store-action { background: #ac3546; border-color: #ac3546; color: #fff; }
+.store-toggle.store-closed .store-action { background: #167347; border-color: #167347; color: #fff; }
+.store-toggle .store-action:disabled { opacity: .6; cursor: wait; }
+@media (max-width: 760px) { .store-toggle { width: 100%; justify-content: space-between; } }

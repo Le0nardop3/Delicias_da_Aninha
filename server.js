@@ -2900,6 +2900,41 @@ app.get('/api/admin/access-logs', requireAuth, async (req, res) => {
   });
 });
 
+// ================= ABRIR / FECHAR LOJA NA OPERAÇÃO =================
+// A proteção central exige permissão "operacao" para estas rotas.
+// Usa o mesmo campo settings.is_open do painel administrativo.
+app.get('/api/admin/operation/store-status', requireAuth, async (req, res) => {
+  try {
+    const db = await getDb();
+    const settings = await db.get('SELECT is_open FROM settings WHERE id = 1');
+    if (!settings) return res.status(404).json({ error: 'Configurações da loja não encontradas.' });
+    res.json({ is_open: Number(settings.is_open) === 1 });
+  } catch (error) {
+    console.error('Erro ao consultar abertura da loja:', error);
+    res.status(500).json({ error: 'Não foi possível consultar o estado da loja.' });
+  }
+});
+
+app.put('/api/admin/operation/store-status', requireAuth, async (req, res) => {
+  if (typeof req.body?.is_open !== 'boolean') {
+    return res.status(400).json({ error: 'Informe is_open como verdadeiro ou falso.' });
+  }
+  try {
+    const db = await getDb();
+    const isOpen = req.body.is_open ? 1 : 0;
+    const current = await db.get('SELECT is_open FROM settings WHERE id = 1');
+    if (!current) return res.status(404).json({ error: 'Configurações da loja não encontradas.' });
+    await db.run(`UPDATE settings SET is_open = $1, updated_at = CURRENT_TIMESTAMP WHERE id = 1`, [isOpen]);
+    await logAudit(req, isOpen ? 'abriu a loja pela operação' : 'fechou a loja pela operação', {
+      estado_anterior: Number(current.is_open), loja_aberta: isOpen
+    });
+    res.json({ ok: true, is_open: Boolean(isOpen) });
+  } catch (error) {
+    console.error('Erro ao alterar abertura da loja:', error);
+    res.status(500).json({ error: 'Não foi possível alterar o estado da loja.' });
+  }
+});
+
 // ================= CONFIGURAÇÕES DA LOJA ADMIN =================
 
 app.get('/api/admin/settings', requireAuth, async (req, res) => {
