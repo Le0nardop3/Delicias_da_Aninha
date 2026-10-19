@@ -824,3 +824,8 @@
     padding: 16px;
   }
 }
+/* Respeitar o controle de visibilidade dos botões por permissão */
+[hidden]{display:none!important}
+
+/* Elementos controlados pelo sistema de permissões */
+[hidden] { display: none !important; }

@@ -76,9 +76,26 @@ function uploadToCloudinary(buffer) {
 
 // ================= AUTH =================
 
-function requireAuth(req, res, next) {
-  if (req.session && req.session.userId) return next();
-  return res.status(401).json({ error: 'Não autorizado' });
+const ADMIN_PERMS = ['loja', 'painel', 'operacao', 'pedidos', 'admin'];
+const DEFAULT_PERMS = { loja: true, painel: true, operacao: true, pedidos: true, admin: false };
+function effectivePermissions(user) {
+  const values = { ...DEFAULT_PERMS, ...(user.permissions || {}) };
+  return Object.fromEntries(ADMIN_PERMS.map(key => [key, user.is_superadmin ? true : values[key] === true]));
+}
+async function requireAuth(req, res, next) {
+  if (!req.session?.userId) return res.status(401).json({ error: 'Não autorizado' });
+  try {
+    const db = await getDb();
+    const user = await db.get('SELECT id, username, permissions, is_superadmin, is_active FROM admin_user WHERE id = $1', [req.session.userId]);
+    if (!user || !user.is_active) return res.status(401).json({ error: 'Conta inativa ou não encontrada.' });
+    req.adminUser = user;
+    req.adminPermissions = effectivePermissions(user);
+    next();
+  } catch (error) { next(error); }
+}
+function requirePermission(permission) {
+  return [requireAuth, (req, res, next) => req.adminPermissions[permission]
+    ? next() : res.status(403).json({ error: 'Você não tem permissão para esta função.' })];
 }
 
 
@@ -303,6 +320,19 @@ app.get('/', async (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
+app.use('/admin/:page', async (req, res, next) => {
+  const page=req.params.page;
+  const protectedPages={ 'painel.html':'painel', 'pedidos.html':'pedidos', 'operacao.html':'operacao', 'usuarios.html':'admin' };
+  if (!Object.hasOwn(protectedPages,page)) return next();
+  if (!req.session?.userId) return res.redirect('/admin/login.html');
+  try {
+    const db=await getDb();
+    const user=await db.get('SELECT permissions,is_superadmin,is_active FROM admin_user WHERE id=$1',[req.session.userId]);
+    if(!user?.is_active) return res.redirect('/admin/login.html');
+    if(!effectivePermissions(user)[protectedPages[page]]) return res.status(403).send('Sem permissão para acessar esta página.');
+    next();
+  } catch(error){next(error);}
+});
 app.use(express.static(path.join(__dirname, 'public')));
 
 app.get('/api/config', async (req, res) => {
@@ -1091,6 +1121,20 @@ app.get('/api/products', async (req, res) => {
   }
 });
 
+// Proteção central para as funcionalidades principais do painel.
+app.use('/api/admin', requireAuth, (req, res, next) => {
+  const path = req.path;
+  if (path === '/me' || path === '/account' || path.startsWith('/users')) return next();
+  let permission = 'painel';
+  if (path.startsWith('/operation/') || /\/orders\/\d+\/(operation-status|restore-operation)$/.test(path)) permission = 'operacao';
+  else if (path.startsWith('/orders') && !path.endsWith('/to-print') && !path.endsWith('/printed')) permission = 'pedidos';
+  // O painel atual também consulta e atualiza pedidos: ele exige o acesso ao painel.
+  // Para as APIs compartilhadas, pedidos OU painel liberam a consulta.
+  if (permission === 'pedidos' && req.adminPermissions.painel) return next();
+  if (!req.adminPermissions[permission]) return res.status(403).json({ error: 'Acesso negado para esta área.' });
+  next();
+});
+
 // ================= LOGIN =================
 
 app.post('/api/login', async (req, res) => {
@@ -1107,10 +1151,14 @@ app.post('/api/login', async (req, res) => {
     return res.status(401).json({ error: 'Usuário ou senha inválidos' });
   }
 
-  req.session.userId = user.id;
+  if (!user.is_active) return res.status(403).json({ error: 'Conta desativada.' });
+  req.session.regenerate(err => {
+    if (err) return res.status(500).json({ error: 'Erro ao iniciar sessão.' });
+    req.session.userId = user.id;
+    res.json({ ok: true, permissions: effectivePermissions(user) });
+  });
   await logAudit(req, 'login realizado', { username: user.username });
 
-  res.json({ ok: true });
 });
 
 app.post('/api/logout', async (req, res) => {
@@ -1120,14 +1168,9 @@ app.post('/api/logout', async (req, res) => {
 
 // ================= ADMIN =================
 
-app.get('/api/admin/me', requireAuth, async (req, res) => {
-  const db = await getDb();
-
-  const user = await db.get(`
-    SELECT username FROM admin_user WHERE id = $1
-  `, [req.session.userId]);
-
-  res.json({ ok: true, username: user ? user.username : 'admin' });
+app.get('/api/admin/me', requireAuth, (req, res) => {
+  res.json({ ok: true, id: req.adminUser.id, username: req.adminUser.username,
+    superadmin: req.adminUser.is_superadmin, permissions: req.adminPermissions });
 });
 
 app.put('/api/admin/account', requireAuth, async (req, res) => {
@@ -1139,8 +1182,8 @@ app.put('/api/admin/account', requireAuth, async (req, res) => {
   const confirmPassword = String(req.body.confirmPassword || '');
 
   const user = await db.get(`
-    SELECT * FROM admin_user WHERE id = 1
-  `);
+    SELECT * FROM admin_user WHERE id = $1
+  `, [req.session.userId]);
 
   if (!user) return res.status(404).json({ error: 'Usuário não encontrado.' });
 
@@ -1163,11 +1206,61 @@ app.put('/api/admin/account', requireAuth, async (req, res) => {
   await db.run(`
     UPDATE admin_user
     SET username = $1, password_hash = $2
-    WHERE id = 1
-  `, [newUsername, bcrypt.hashSync(newPassword, 10)]);
+    WHERE id = $3
+  `, [newUsername, bcrypt.hashSync(newPassword, 10), req.session.userId]);
   await logAudit(req, 'alterou usuário/senha do admin', { novo_usuario: newUsername });
 
   req.session.destroy(() => res.json({ ok: true }));
+});
+
+// Gestão de administradores (somente quem possui permissão específica).
+const canManage = requirePermission('admin');
+app.get('/api/admin/users', canManage, async (req, res) => {
+  const db = await getDb();
+  const users = await db.all('SELECT id, username, is_superadmin, is_active, permissions, created_at FROM admin_user ORDER BY is_superadmin DESC, id');
+  res.json(users.map(u => ({ ...u, permissions: effectivePermissions(u) })));
+});
+function userPayload(body) {
+  const username = String(body.username || '').trim();
+  if (username.length < 3 || username.length > 60) throw Error('O usuário deve ter de 3 a 60 caracteres.');
+  const permissions = Object.fromEntries(ADMIN_PERMS.map(key => [key, body.permissions?.[key] === true]));
+  return { username, permissions, active: body.is_active !== false };
+}
+app.post('/api/admin/users', canManage, async (req, res) => {
+  try {
+    const db = await getDb(); const u = userPayload(req.body);
+    const password = String(req.body.password || '');
+    if (password.length < 8) return res.status(400).json({ error: 'A senha precisa ter pelo menos 8 caracteres.' });
+    if (await db.get('SELECT id FROM admin_user WHERE lower(username)=lower($1)',[u.username])) return res.status(409).json({error:'Esse usuário já existe.'});
+    const result = await db.get(`INSERT INTO admin_user (username,password_hash,permissions,is_active) VALUES ($1,$2,$3::jsonb,$4) RETURNING id`,[u.username,bcrypt.hashSync(password,12),JSON.stringify(u.permissions),u.active]);
+    await logAudit(req,'criou administrador',{id:result.id,username:u.username});
+    res.status(201).json({ok:true,id:result.id});
+  } catch(e) {res.status(400).json({error:e.message});}
+});
+app.put('/api/admin/users/:id', canManage, async (req, res) => {
+  try {
+    const db=await getDb(); const id=Number(req.params.id);
+    const target=await db.get('SELECT * FROM admin_user WHERE id=$1',[id]);
+    if(!target) return res.status(404).json({error:'Usuário não encontrado.'});
+    if(target.is_superadmin) return res.status(403).json({error:'O titular principal não pode ser alterado por esta tela.'});
+    const u=userPayload(req.body), password=String(req.body.password||'');
+    if(password && password.length<8) return res.status(400).json({error:'A nova senha precisa ter pelo menos 8 caracteres.'});
+    if(await db.get('SELECT id FROM admin_user WHERE lower(username)=lower($1) AND id<>$2',[u.username,id])) return res.status(409).json({error:'Esse usuário já existe.'});
+    await db.run(`UPDATE admin_user SET username=$1, permissions=$2::jsonb, is_active=$3,
+      password_hash=CASE WHEN $4::text = '' THEN password_hash ELSE $5 END, updated_at=NOW() WHERE id=$6`,
+      [u.username,JSON.stringify(u.permissions),u.active,password,password?bcrypt.hashSync(password,12):target.password_hash,id]);
+    await logAudit(req,'editou administrador',{id,username:u.username});
+    res.json({ok:true});
+  } catch(e){res.status(400).json({error:e.message});}
+});
+app.delete('/api/admin/users/:id', canManage, async (req, res) => {
+  const db=await getDb(); const id=Number(req.params.id);
+  const target=await db.get('SELECT id,username,is_superadmin FROM admin_user WHERE id=$1',[id]);
+  if(!target) return res.status(404).json({error:'Usuário não encontrado.'});
+  if(target.is_superadmin || id===req.adminUser.id) return res.status(403).json({error:'Não é permitido excluir essa conta.'});
+  await db.run('DELETE FROM admin_user WHERE id=$1',[id]);
+  await logAudit(req,'excluiu administrador',{id,username:target.username});
+  res.json({ok:true});
 });
 
 // ================= PRODUTOS ADMIN =================

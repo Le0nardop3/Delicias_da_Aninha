@@ -36,10 +36,22 @@ function createAsyncAdapter() {
 }
 
 let db = null;
+let initialization = null;
 
+// Compartilha a mesma promessa durante a criação/migração do banco.
+// Assim nenhuma rota consulta colunas antes da migração terminar.
 async function getDb() {
-  if (db) return db;
+  if (!initialization) {
+    initialization = initializeDb().catch(error => {
+      initialization = null;
+      db = null;
+      throw error;
+    });
+  }
+  return initialization;
+}
 
+async function initializeDb() {
   db = createAsyncAdapter();
 
   // Criação das tabelas (se não existirem)
@@ -136,6 +148,31 @@ async function getDb() {
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
       updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     );
+  `);
+
+  // Compatibilidade com tabelas admin_user criadas por versões antigas.
+  // CREATE TABLE IF NOT EXISTS não cria colunas ausentes numa tabela existente.
+  await db.exec(`
+    ALTER TABLE admin_user ADD COLUMN IF NOT EXISTS created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP;
+    ALTER TABLE admin_user ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP;
+  `);
+
+  // Permissões por administrador; mantém os usuários já existentes.
+  await db.exec(`
+    ALTER TABLE admin_user ADD COLUMN IF NOT EXISTS is_superadmin BOOLEAN NOT NULL DEFAULT FALSE;
+    ALTER TABLE admin_user ADD COLUMN IF NOT EXISTS is_active BOOLEAN NOT NULL DEFAULT TRUE;
+    ALTER TABLE admin_user ADD COLUMN IF NOT EXISTS permissions JSONB NOT NULL DEFAULT '{"loja":true,"painel":true,"operacao":true,"pedidos":true,"admin":false}'::jsonb;
+    CREATE SEQUENCE IF NOT EXISTS admin_user_id_seq;
+    ALTER TABLE admin_user ALTER COLUMN id SET DEFAULT nextval('admin_user_id_seq');
+    SELECT setval('admin_user_id_seq', GREATEST((SELECT COALESCE(MAX(id),0) FROM admin_user),1), true);
+  `);
+  // Léo é o titular inicial do gerenciamento. Essa atribuição é feita uma vez,
+  // apenas se ainda não existir titular. Não sobrescreve permissões já salvas.
+  await db.run(`
+    UPDATE admin_user SET is_superadmin = TRUE
+    WHERE id = (SELECT id FROM admin_user
+                WHERE lower(username) IN ('léo', 'leo') ORDER BY id LIMIT 1)
+      AND NOT EXISTS (SELECT 1 FROM admin_user WHERE is_superadmin = TRUE)
   `);
 
   // Inserções iniciais

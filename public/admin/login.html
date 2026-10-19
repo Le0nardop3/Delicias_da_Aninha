@@ -41,7 +41,11 @@
       });
 
       if (res.ok) {
-        window.location.href = '/admin/painel.html';
+        const data = await res.json();
+        const p = data.permissions || {};
+        const page = p.painel ? 'painel.html' : p.operacao ? 'operacao.html' : p.pedidos ? 'pedidos.html' : p.admin ? 'usuarios.html' : null;
+        if (!page) { msg.textContent = 'Sua conta não tem acesso aos painéis. Solicite permissão ao administrador.'; return; }
+        window.location.href = '/admin/' + page;
       } else {
         msg.textContent = 'Usuário ou senha inválidos.';
       }
