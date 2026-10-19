@@ -2514,7 +2514,8 @@ app.put('/api/admin/orders/:id/operation-status', requireAuth, async (req, res) 
           is_printed = CASE WHEN $4 THEN FALSE ELSE COALESCE(is_printed, FALSE) END,
           printed_at = CASE WHEN $4 THEN NULL ELSE printed_at END,
           reprint_requested = CASE WHEN $4 THEN FALSE ELSE COALESCE(reprint_requested, FALSE) END,
-          reprint_requested_at = CASE WHEN $4 THEN NULL ELSE reprint_requested_at END
+          reprint_requested_at = CASE WHEN $4 THEN NULL ELSE reprint_requested_at END,
+          print_pending = CASE WHEN $4 THEN TRUE ELSE COALESCE(print_pending, FALSE) END
         WHERE id = $3
       `, [...params, shouldQueueInitialPrint]);
     } else {
@@ -2569,7 +2570,8 @@ app.post('/api/admin/orders/:id/restore-operation', requireAuth, async (req, res
         is_printed = FALSE,
         printed_at = NULL,
         reprint_requested = FALSE,
-        reprint_requested_at = NULL
+        reprint_requested_at = NULL,
+        print_pending = FALSE
       WHERE id = $1
     `, [id]);
 
@@ -2674,24 +2676,10 @@ app.get('/api/admin/orders/to-print', requirePrintAgent, async (req, res) => {
     const db = await getDb();
 
     /*
-     * FILA DE IMPRESSÃO
-     *
-     * Existem dois casos:
-     *
-     * 1. IMPRESSÃO INICIAL
-     *    - Pedido acabou de ser confirmado pelo WhatsApp
-     *    - operation_status = confirmado
-     *    - ainda não foi impresso
-     *
-     * 2. REIMPRESSÃO
-     *    - Pedido já foi impresso anteriormente
-     *    - funcionário solicitou explicitamente uma reimpressão
-     *
-     * Pedidos preparando/pronto/entregue NÃO entram
-     * automaticamente na fila.
-     *
-     * Isso evita que pedidos antigos ou finalizados
-     * fiquem sendo devolvidos ao agente.
+     * Somente pedidos cuja impressão foi autorizada após confirmação
+     * entram automaticamente. A autorização persiste ao avançar a etapa.
+     * Pedidos legados não entram por engano quando a migração é aplicada.
+     * Uma reimpressão depende de solicitação explícita no painel.
      */
 
     const orders = await db.all(`
@@ -2701,12 +2689,14 @@ app.get('/api/admin/orders/to-print', requirePrintAgent, async (req, res) => {
         status NOT IN ('cancelado', 'expirado')
         AND (
           (
-            operation_status = 'confirmado'
+            COALESCE(print_pending, FALSE) = TRUE
             AND COALESCE(is_printed, FALSE) = FALSE
+            AND operation_status IN ('confirmado', 'preparando', 'pronto', 'entregue')
           )
           OR
           (
             COALESCE(reprint_requested, FALSE) = TRUE
+            AND operation_status IN ('confirmado', 'preparando', 'pronto', 'entregue')
           )
         )
       ORDER BY id ASC
@@ -2771,6 +2761,7 @@ app.post('/api/admin/orders/:id/printed', requirePrintAgent, async (req, res) =>
       SET
         is_printed = TRUE,
         printed_at = CURRENT_TIMESTAMP,
+        print_pending = FALSE,
         reprint_requested = FALSE,
         reprint_requested_at = NULL
       WHERE id = $1
