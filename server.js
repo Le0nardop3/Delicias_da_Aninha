@@ -1121,19 +1121,71 @@ app.get('/api/products', async (req, res) => {
   }
 });
 
-// Proteção central para as funcionalidades principais do painel.
-app.use('/api/admin', requireAuth, (req, res, next) => {
-  const path = req.path;
-  if (path === '/me' || path === '/account' || path.startsWith('/users')) return next();
-  let permission = 'painel';
-  if (path.startsWith('/operation/') || /\/orders\/\d+\/(operation-status|restore-operation)$/.test(path)) permission = 'operacao';
-  else if (path.startsWith('/orders') && !path.endsWith('/to-print') && !path.endsWith('/printed')) permission = 'pedidos';
-  // O painel atual também consulta e atualiza pedidos: ele exige o acesso ao painel.
-  // Para as APIs compartilhadas, pedidos OU painel liberam a consulta.
-  if (permission === 'pedidos' && req.adminPermissions.painel) return next();
-  if (!req.adminPermissions[permission]) return res.status(403).json({ error: 'Acesso negado para esta área.' });
-  next();
-});
+
+  // Proteção central para as funcionalidades principais do painel.
+  // O agente de impressão utiliza autenticação própria por token.
+
+  app.use('/api/admin', (req, res, next) => {
+
+    const rotaBuscarImpressao =
+      req.method === 'GET' &&
+      req.path === '/orders/to-print';
+
+    const rotaConfirmarImpressao =
+      req.method === 'POST' &&
+      /^\/orders\/\d+\/printed$/.test(req.path);
+
+    // Somente estas duas rotas dispensam a sessão
+    // administrativa. Elas continuam protegidas
+    // pela função requirePrintAgent.
+    if (rotaBuscarImpressao || rotaConfirmarImpressao) {
+      return next();
+    }
+
+    // Todas as demais rotas continuam exigindo login.
+    requireAuth(req, res, () => {
+      const path = req.path;
+
+      if (
+        path === '/me' ||
+        path === '/account' ||
+        path.startsWith('/users')
+      ) {
+        return next();
+      }
+
+      let permission = 'painel';
+
+      if (
+        path.startsWith('/operation/') ||
+        /\/orders\/\d+\/(operation-status|restore-operation)$/.test(path)
+      ) {
+        permission = 'operacao';
+      } else if (
+        path.startsWith('/orders') &&
+        !path.endsWith('/to-print') &&
+        !path.endsWith('/printed')
+      ) {
+        permission = 'pedidos';
+      }
+
+      if (
+        permission === 'pedidos' &&
+        req.adminPermissions.painel
+      ) {
+        return next();
+      }
+
+      if (!req.adminPermissions[permission]) {
+        return res.status(403).json({
+          error: 'Acesso negado para esta área.'
+        });
+      }
+
+      next();
+    });
+  });
+
 
 // ================= LOGIN =================
 
