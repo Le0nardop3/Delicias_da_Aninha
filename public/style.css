@@ -2210,3 +2210,19 @@ nav .menu a.login-client:hover {
 .floating-whatsapp-btn svg{width:29px;height:29px}
 body.guide-open .floating-help-actions{display:none}
 @media(max-width:600px){.floating-help-actions{right:12px;bottom:calc(12px + env(safe-area-inset-bottom));gap:8px}.floating-help-btn{width:48px;height:48px}.floating-guide-btn{font-size:21px}.floating-whatsapp-btn svg{width:26px;height:26px}}
+
+/* Busca de endereço: CEP em primeiro lugar, rua como alternativa */
+.address-lookup-choice { display: grid; gap: 9px; padding: 12px; background: #faf7f5; border: 1px solid #e9ddd7; border-radius: 12px; }
+.address-lookup-option { display: flex; align-items: center; flex-wrap: wrap; gap: 7px; font-size: 14px; cursor: pointer; }
+.address-lookup-option input { accent-color: #74352a; width: auto; }
+.address-lookup-option small { font-size: 12px; color: #755b53; }
+.address-cep-lookup, .address-cep-correction { display: grid; gap: 8px; }
+.address-cep-lookup > label, .address-cep-correction > label { font-weight: 600; font-size: 13px; }
+.address-cep-row { display: flex; gap: 8px; }
+.address-cep-row input { flex: 1; min-width: 0; }
+.address-cep-button { border: 0; border-radius: 10px; background: #633026; color: white; font-weight: 700; padding: 10px 14px; cursor: pointer; white-space: nowrap; }
+.address-cep-button:hover { background: #49241c; }
+.address-cep-feedback { font-size: 12px; color: #496653; line-height: 1.5; }
+.address-cep-feedback.is-error { color: #ac3a2d; }
+.address-street-lookup > small { color: #76655e; font-size: 12px; }
+@media (max-width: 400px) { .address-cep-row { flex-wrap: wrap; } .address-cep-button { width: 100%; } }

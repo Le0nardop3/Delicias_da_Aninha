@@ -192,12 +192,26 @@
               ← Voltar aos endereços salvos
             </button>
 
-            <div class="address-search-wrapper">
+            <div class="address-lookup-choice" role="group" aria-label="Modo de busca do endereço">
+              <label class="address-lookup-option"><input type="radio" name="addressLookupMode" value="cep" checked> Buscar pelo CEP <small>(recomendado)</small></label>
+              <label class="address-lookup-option"><input type="radio" name="addressLookupMode" value="rua"> Buscar pelo nome da rua</label>
+            </div>
 
-              <input type="text" id="addressSearch" placeholder="Digite sua rua, bairro ou avenida" autocomplete="off">
+            <div id="addressCepLookup" class="address-cep-lookup">
+              <label for="addressCep">CEP</label>
+              <div class="address-cep-row">
+                <input type="text" id="addressCep" placeholder="00000-000" inputmode="numeric" autocomplete="postal-code" maxlength="9">
+                <button type="button" id="addressCepButton" class="address-cep-button">Buscar CEP</button>
+              </div>
+              <small id="addressCepFeedback" class="address-cep-feedback" role="status" aria-live="polite">Informe o CEP para preencher seu endereço automaticamente.</small>
+            </div>
 
-              <div id="addressSuggestions" class="address-suggestions"></div>
-
+            <div id="addressStreetLookup" class="address-street-lookup" style="display:none;">
+              <div class="address-search-wrapper">
+                <input type="text" id="addressSearch" placeholder="Digite sua rua, bairro ou avenida" autocomplete="off">
+                <div id="addressSuggestions" class="address-suggestions"></div>
+              </div>
+              <small>Selecione sua rua entre as sugestões para continuar.</small>
             </div>
 
 
@@ -217,9 +231,16 @@
               </div>
 
 
+              <div id="addressCepCorrection" class="address-cep-correction" style="display:none;">
+                <label for="addressCepStreet">Rua / Avenida (pode corrigir)</label>
+                <input type="text" id="addressCepStreet" placeholder="Rua / Avenida">
+                <label for="addressCepNeighborhood">Bairro (pode corrigir)</label>
+                <input type="text" id="addressCepNeighborhood" placeholder="Bairro">
+              </div>
+
               <div class="address-grid">
 
-                <input type="text" id="addressNumber" placeholder="Número">
+                <input type="text" id="addressNumber" placeholder="Número *">
 
                 <input type="text" id="addressComplement" placeholder="Complemento">
 

@@ -890,9 +890,12 @@ function showNewAddressForm() {
 
 
 function clearNewAddressForm() {
+  cepRequestSequence++;
   selectedAddress = null;
 
   const addressSearch = document.getElementById('addressSearch');
+  const addressCep = document.getElementById('addressCep');
+  const cepFeedback = document.getElementById('addressCepFeedback');
   const addressNumber = document.getElementById('addressNumber');
   const addressComplement = document.getElementById('addressComplement');
   const addressReference = document.getElementById('addressReference');
@@ -902,6 +905,11 @@ function clearNewAddressForm() {
   const addressSuggestions = document.getElementById('addressSuggestions');
 
   if (addressSearch) addressSearch.value = '';
+  if (addressCep) addressCep.value = '';
+  if (cepFeedback) { cepFeedback.textContent = 'Informe o CEP para preencher seu endereço automaticamente.'; cepFeedback.className = 'address-cep-feedback'; }
+  ['addressCepStreet', 'addressCepNeighborhood'].forEach(id => { const input = document.getElementById(id); if (input) input.value = ''; });
+  const cepCorrection = document.getElementById('addressCepCorrection');
+  if (cepCorrection) cepCorrection.style.display = 'none';
   if (addressNumber) addressNumber.value = '';
   if (addressComplement) addressComplement.value = '';
   if (addressReference) addressReference.value = '';
@@ -921,6 +929,16 @@ function clearNewAddressForm() {
 
 function extrairEnderecoLimpo(endereco) {
   const a = endereco?.address || {};
+  // CEP é a referência inicial; os campos podem ser corrigidos pelo cliente.
+  if (endereco?.__cepBased) {
+    const street = document.getElementById('addressCepStreet')?.value.trim() || '';
+    const neighborhood = document.getElementById('addressCepNeighborhood')?.value.trim() || '';
+    const city = a.city || 'João Pessoa';
+    const state = a.state || 'PB';
+    const cep = a.postcode || '';
+    const cleanText = [street, neighborhood, city, state, cep && `CEP ${cep}`].filter(Boolean).join(', ');
+    return { street, neighborhood, city, state, cleanText, latitude: null, longitude: null };
+  }
 
   const street =
     a.road ||
@@ -1054,6 +1072,7 @@ async function buscarEnderecos(query) {
     }
 
     const data = await response.json();
+    if (!document.querySelector('input[name="addressLookupMode"][value="rua"]')?.checked || document.getElementById('addressSearch')?.value.trim() !== query) return;
 
     window.__addressResults = data;
 
@@ -1165,6 +1184,15 @@ async function sendOrder(event) {
     return;
   }
 
+  if (!selectedSavedAddress && !document.getElementById('addressNumber')?.value.trim()) {
+    alert('Informe o número do endereço.');
+    document.getElementById('addressNumber')?.focus();
+    return;
+  }
+  if (selectedAddress?.__cepBased && (!document.getElementById('addressCepStreet')?.value.trim() || !document.getElementById('addressCepNeighborhood')?.value.trim())) {
+    alert('Informe a rua e o bairro para continuar.');
+    return;
+  }
   const address = montarEnderecoFinal();
   const payment = document.getElementById('paymentMethod').value;
   const note = document.getElementById('orderNote').value.trim();
@@ -1308,6 +1336,112 @@ function gerarMensagem(cart, orderId, name, address, payment, note) {
 document.getElementById('openCart').addEventListener('click', () => document.getElementById('cart').classList.add('open'));
 document.getElementById('closeCart').addEventListener('click', () => document.getElementById('cart').classList.remove('open'));
 document.getElementById('checkoutForm').addEventListener('submit', sendOrder);
+
+// ================= BUSCA PRIORITÁRIA POR CEP =================
+let cepRequestSequence = 0;
+
+function setCepFeedback(message, error = false) {
+  const element = document.getElementById('addressCepFeedback');
+  if (element) {
+    element.textContent = message;
+    element.className = 'address-cep-feedback' + (error ? ' is-error' : '');
+  }
+}
+
+function trocarModoBuscaEndereco(mode) {
+  cepRequestSequence++;
+  clearTimeout(addressTimer);
+  document.getElementById('addressCepLookup').style.display = mode === 'cep' ? 'grid' : 'none';
+  document.getElementById('addressStreetLookup').style.display = mode === 'rua' ? 'grid' : 'none';
+  // Evita aproveitar um endereço selecionado em outro modo.
+  selectedAddress = null;
+  const details = document.getElementById('addressDetailsBox');
+  if (details) details.style.display = 'none';
+  const suggestions = document.getElementById('addressSuggestions');
+  if (suggestions) { suggestions.classList.remove('open'); suggestions.innerHTML = ''; }
+  const correction = document.getElementById('addressCepCorrection');
+  if (correction) correction.style.display = 'none';
+}
+
+document.querySelectorAll('input[name="addressLookupMode"]').forEach(radio => {
+  radio.addEventListener('change', () => {
+    if (radio.checked) trocarModoBuscaEndereco(radio.value);
+  });
+});
+
+function formatarCepInput(value) {
+  const digits = String(value || '').replace(/\D/g, '').slice(0, 8);
+  return digits.length > 5 ? `${digits.slice(0, 5)}-${digits.slice(5)}` : digits;
+}
+
+async function buscarEnderecoPorCep() {
+  const cepInput = document.getElementById('addressCep');
+  const cep = (cepInput?.value || '').replace(/\D/g, '');
+  if (cep.length !== 8) {
+    setCepFeedback('Informe um CEP válido com 8 números.', true);
+    return;
+  }
+  const currentRequest = ++cepRequestSequence;
+  selectedAddress = null;
+  selectedSavedAddress = null;
+  document.getElementById('addressDetailsBox').style.display = 'none';
+  setCepFeedback('Consultando CEP...');
+  try {
+    const response = await fetch(`https://viacep.com.br/ws/${cep}/json/`);
+    if (!response.ok) throw new Error('Consulta indisponível');
+    const data = await response.json();
+    if (currentRequest !== cepRequestSequence || !document.querySelector('input[name="addressLookupMode"][value="cep"]')?.checked) return;
+    if (data.erro) {
+      setCepFeedback('CEP não encontrado. Confira os números ou use a busca pelo nome da rua.', true);
+      return;
+    }
+    // O atendimento está configurado para João Pessoa/PB.
+    if (data.uf !== 'PB' || !['João Pessoa', 'Joao Pessoa'].includes(data.localidade)) {
+      setCepFeedback('Este CEP é de outra cidade. Confira se o endereço está correto.', true);
+      return;
+    }
+    const street = String(data.logradouro || '').trim();
+    const neighborhood = String(data.bairro || '').trim();
+    const streetInput = document.getElementById('addressCepStreet');
+    const neighborhoodInput = document.getElementById('addressCepNeighborhood');
+    streetInput.value = street;
+    neighborhoodInput.value = neighborhood;
+    selectedAddress = {
+      __cepBased: true,
+      address: { road: street, suburb: neighborhood, city: data.localidade, state: data.uf, postcode: formatarCepInput(cep) }
+    };
+    const correction = document.getElementById('addressCepCorrection');
+    correction.style.display = 'grid';
+    document.getElementById('addressDetailsBox').style.display = 'grid';
+    const updateSummary = () => {
+      document.getElementById('selectedAddressText').textContent = extrairEnderecoLimpo(selectedAddress).cleanText;
+    };
+    updateSummary();
+    setCepFeedback(street && neighborhood ? 'Endereço encontrado! Confira a rua e o bairro, e informe o número.' : 'CEP encontrado. Complete a rua e o bairro para continuar.');
+    document.getElementById(street && neighborhood ? 'addressNumber' : !street ? 'addressCepStreet' : 'addressCepNeighborhood').focus();
+  } catch (error) {
+    if (currentRequest !== cepRequestSequence) return;
+    setCepFeedback('Não foi possível consultar o CEP agora. Tente novamente ou escolha a busca por rua.', true);
+  }
+}
+
+document.getElementById('addressCep')?.addEventListener('input', event => {
+  event.target.value = formatarCepInput(event.target.value);
+  cepRequestSequence++;
+  selectedAddress = null;
+  document.getElementById('addressDetailsBox').style.display = 'none';
+  setCepFeedback('Informe o CEP para preencher seu endereço automaticamente.');
+  if (event.target.value.replace(/\D/g, '').length === 8) buscarEnderecoPorCep();
+});
+document.getElementById('addressCep')?.addEventListener('keydown', event => {
+  if (event.key === 'Enter') { event.preventDefault(); buscarEnderecoPorCep(); }
+});
+document.getElementById('addressCepButton')?.addEventListener('click', buscarEnderecoPorCep);
+['addressCepStreet', 'addressCepNeighborhood'].forEach(id => {
+  document.getElementById(id)?.addEventListener('input', () => {
+    if (selectedAddress?.__cepBased) document.getElementById('selectedAddressText').textContent = extrairEnderecoLimpo(selectedAddress).cleanText;
+  });
+});
 
 // ================= BUSCA DE ENDEREÇO =================
 
