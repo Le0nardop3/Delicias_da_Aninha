@@ -58,6 +58,16 @@
 
         <label>Imagem do produto</label>
         <input type="file" id="image" accept="image/png,image/jpeg,image/webp">
+        <div id="currentProductImage" class="current-product-image" hidden>
+          <img id="currentProductImagePreview" src="" alt="Foto atual do produto">
+          <div>
+            <span id="currentProductImageLabel">Foto atual</span>
+            <label class="remove-product-image-option">
+              <input type="checkbox" id="removeProductImage">
+              Remover foto atual ao salvar
+            </label>
+          </div>
+        </div>
 
         <div class="checks">
           <label><input type="checkbox" id="active" checked> Produto disponível</label>

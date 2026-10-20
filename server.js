@@ -1912,8 +1912,14 @@ app.put('/api/admin/products/:id', requireAuth, upload.single('image'), async (r
   const active = req.body.active === '1' ? 1 : 0;
   const featured = req.body.featured === '1' ? 1 : 0;
   let image = current.image_url;
+  const removeImage = req.body.remove_image === '1';
 
-  if (req.file) {
+  if (removeImage && req.file) {
+    return res.status(400).json({ error: 'Escolha entre remover a foto ou enviar outra.' });
+  }
+  if (removeImage) {
+    image = '';
+  } else if (req.file) {
     image = await uploadToCloudinary(req.file.buffer);
   }
 

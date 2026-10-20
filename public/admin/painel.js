@@ -104,6 +104,18 @@ function renderTable() {
   }).join('');
 }
 
+function updateCurrentProductImage(imageUrl = '') {
+  const container = document.getElementById('currentProductImage');
+  const preview = document.getElementById('currentProductImagePreview');
+  const checkbox = document.getElementById('removeProductImage');
+  const label = document.getElementById('currentProductImageLabel');
+  checkbox.checked = false;
+  container.hidden = !imageUrl;
+  preview.removeAttribute('src');
+  if (imageUrl) preview.src = imageUrl;
+  label.textContent = 'Foto atual';
+}
+
 function clearForm() {
   document.getElementById('formTitle').textContent = 'Novo produto';
   document.getElementById('productId').value = '';
@@ -111,6 +123,7 @@ function clearForm() {
   document.getElementById('description').value = '';
   document.getElementById('price').value = '';
   document.getElementById('image').value = '';
+  updateCurrentProductImage();
   document.getElementById('active').checked = true;
   document.getElementById('featured').checked = false;
   document.getElementById('formMsg').textContent = '';
@@ -124,6 +137,8 @@ async function editProduct(id) {
 
   document.getElementById('formTitle').textContent = 'Editar produto';
   document.getElementById('productId').value = p.id;
+  document.getElementById('image').value = '';
+  updateCurrentProductImage(p.image || '');
   document.getElementById('name').value = p.name;
   document.getElementById('description').value = p.description || '';
   document.getElementById('price').value = p.price;
@@ -457,6 +472,9 @@ async function saveProduct(e) {
 
   const file = document.getElementById('image').files[0];
   if (file) form.append('image', file);
+  if (currentId && document.getElementById('removeProductImage').checked && !file) {
+    form.append('remove_image', '1');
+  }
 
   try {
     const productRes = await fetch(currentId ? `/api/admin/products/${currentId}` : '/api/admin/products', {
@@ -572,6 +590,15 @@ async function updateAccount(e) {
   alert('Acesso atualizado com sucesso. Entre novamente com o novo usuário e senha.');
   window.location.href = '/admin/login.html';
 }
+
+document.getElementById('image').addEventListener('change', () => {
+  const selected = document.getElementById('image').files.length > 0;
+  if (selected) document.getElementById('removeProductImage').checked = false;
+});
+
+document.getElementById('removeProductImage').addEventListener('change', event => {
+  if (event.target.checked) document.getElementById('image').value = '';
+});
 
 document.getElementById('productForm').addEventListener('submit', saveProduct);
 document.getElementById('clearBtn').addEventListener('click', clearForm);

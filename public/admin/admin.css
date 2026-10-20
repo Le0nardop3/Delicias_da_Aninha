@@ -829,3 +829,12 @@
 
 /* Elementos controlados pelo sistema de permissões */
 [hidden] { display: none !important; }
+
+/* Foto atual na edição de produto */
+.current-product-image:not([hidden]) { display: flex; align-items: center; gap: 12px; margin-top: 10px; padding: 10px; border: 1px solid #e7d8ce; border-radius: 12px; background: #fff; }
+.current-product-image[hidden] { display: none !important; }
+.current-product-image img { width: 76px; height: 76px; flex-shrink: 0; object-fit: cover; border-radius: 10px; background: #f6efe8; }
+.current-product-image > div { min-width: 0; display: grid; gap: 9px; }
+.current-product-image span { font-size: 13px; color: #6b554a; font-weight: 700; }
+.remove-product-image-option { display: flex !important; align-items: center; gap: 7px; font-size: 13px; font-weight: 700; cursor: pointer; color: #9b2929 !important; }
+.remove-product-image-option input { width: auto !important; margin: 0; accent-color: #9b2929; }
