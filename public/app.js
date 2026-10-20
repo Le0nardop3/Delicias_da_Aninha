@@ -1068,7 +1068,9 @@ async function buscarEnderecos(query) {
   }
 
   try {
-    const url = `https://nominatim.openstreetmap.org/search?format=json&addressdetails=1&limit=5&countrycodes=br&q=${encodeURIComponent(query + ', João Pessoa, PB')}`;
+    // Consulta ampla na região para localizar ruas de João Pessoa e Cabedelo.
+    // Os resultados continuam selecionados explicitamente pelo cliente.
+    const url = `https://nominatim.openstreetmap.org/search?format=json&addressdetails=1&limit=8&countrycodes=br&q=${encodeURIComponent(query + ', PB, Brasil')}`;
 
     const response = await fetch(url);
 
@@ -1433,9 +1435,14 @@ async function buscarEnderecoPorCep() {
       setCepFeedback('CEP não encontrado. Confira os números ou use a busca pelo nome da rua.', true);
       return;
     }
-    // O atendimento está configurado para João Pessoa/PB.
-    if (data.uf !== 'PB' || !['João Pessoa', 'Joao Pessoa'].includes(data.localidade)) {
-      setCepFeedback('Este CEP é de outra cidade. Confira se o endereço está correto.', true);
+    // Municípios aceitos no cadastro de entrega. Um CEP válido não confirma
+    // automaticamente a cobertura ou o valor do frete, que continuam sujeitos
+    // à confirmação da loja pelo WhatsApp.
+    const normalizarCidade = value => String(value || '')
+      .normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim().toLowerCase();
+    const cidadesAtendidas = new Set(['joao pessoa', 'cabedelo']);
+    if (String(data.uf || '').toUpperCase() !== 'PB' || !cidadesAtendidas.has(normalizarCidade(data.localidade))) {
+      setCepFeedback('No momento, o cadastro por CEP atende João Pessoa e Cabedelo/PB. Confira o CEP ou use a busca por rua.', true);
       return;
     }
     const street = String(data.logradouro || '').trim();

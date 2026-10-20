@@ -3,5 +3,3 @@ data/database.sqlite
 data/database.json
 .env
 zerar_pedidos.js
-contar_clientes.js
-relatorio_gerencial_aninha.js
