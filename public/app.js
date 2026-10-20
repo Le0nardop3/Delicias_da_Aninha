@@ -4,6 +4,8 @@ let cart = [];
 let currentCategory = 'Todos';
 let whatsappNumber = '5583999999999';
 let isStoreOpen = true;
+let deliveryEnabled = true;
+let pickupEnabled = true;
 let currentCustomer = null;
 let selectedAddress = null;
 let addressTimer = null;
@@ -27,6 +29,9 @@ async function loadData() {
     floatingWhatsapp.href = `https://wa.me/${whatsappNumber}`;
   }
   isStoreOpen = Number(config.isOpen) === 1;
+  deliveryEnabled = Number(config.deliveryEnabled) === 1;
+  pickupEnabled = Number(config.pickupEnabled) === 1;
+  atualizarModalidadePedido();
   categories = await catRes.json();
   products = await prodRes.json();
   renderFilters();
@@ -1154,6 +1159,33 @@ function selecionarEndereco(index) {
   }
 }
 
+function modalidadePedido() {
+  return document.querySelector('input[name="fulfillmentType"]:checked')?.value || 'entrega';
+}
+
+function atualizarModalidadePedido() {
+  const entrega = document.querySelector('input[name="fulfillmentType"][value="entrega"]');
+  const retirada = document.querySelector('input[name="fulfillmentType"][value="retirada"]');
+  if (!entrega || !retirada) return;
+  entrega.disabled = !deliveryEnabled;
+  retirada.disabled = !pickupEnabled;
+  entrega.closest('label').style.display = deliveryEnabled ? '' : 'none';
+  retirada.closest('label').style.display = pickupEnabled ? '' : 'none';
+  if (entrega.checked && !deliveryEnabled && pickupEnabled) retirada.checked = true;
+  if (retirada.checked && !pickupEnabled && deliveryEnabled) entrega.checked = true;
+  const hasMode = deliveryEnabled || pickupEnabled;
+  const mode = modalidadePedido();
+  document.getElementById('addressBox').style.display = hasMode && mode === 'entrega' ? '' : 'none';
+  document.getElementById('deliveryFeeNotice').style.display = hasMode && mode === 'entrega' ? '' : 'none';
+  const feedback = document.getElementById('fulfillmentFeedback');
+  if (feedback) feedback.textContent = !hasMode ? 'Nenhuma modalidade está disponível no momento.' : mode === 'retirada' ? 'Retire seu pedido na loja. Não será cobrada taxa de entrega.' : '';
+  document.querySelector('#checkoutForm button[type="submit"]').disabled = !hasMode;
+}
+
+document.querySelectorAll('input[name="fulfillmentType"]').forEach(input => {
+  input.addEventListener('change', atualizarModalidadePedido);
+});
+
 async function sendOrder(event) {
   event.preventDefault();
 
@@ -1179,21 +1211,26 @@ async function sendOrder(event) {
 
   const name = currentCustomer.name;
 
-  if (!selectedSavedAddress && !selectedAddress) {
+  const fulfillmentType = modalidadePedido();
+  if ((fulfillmentType === 'entrega' && !deliveryEnabled) || (fulfillmentType === 'retirada' && !pickupEnabled)) {
+    alert('Modalidade indisponível no momento. Atualize a página.');
+    return;
+  }
+  if (fulfillmentType === 'entrega' && !selectedSavedAddress && !selectedAddress) {
     alert('Selecione um endereço da lista antes de finalizar.');
     return;
   }
 
-  if (!selectedSavedAddress && !document.getElementById('addressNumber')?.value.trim()) {
+  if (fulfillmentType === 'entrega' && !selectedSavedAddress && !document.getElementById('addressNumber')?.value.trim()) {
     alert('Informe o número do endereço.');
     document.getElementById('addressNumber')?.focus();
     return;
   }
-  if (selectedAddress?.__cepBased && (!document.getElementById('addressCepStreet')?.value.trim() || !document.getElementById('addressCepNeighborhood')?.value.trim())) {
+  if (fulfillmentType === 'entrega' && selectedAddress?.__cepBased && (!document.getElementById('addressCepStreet')?.value.trim() || !document.getElementById('addressCepNeighborhood')?.value.trim())) {
     alert('Informe a rua e o bairro para continuar.');
     return;
   }
-  const address = montarEnderecoFinal();
+  const address = fulfillmentType === 'retirada' ? 'RETIRADA NA LOJA' : montarEnderecoFinal();
   const payment = document.getElementById('paymentMethod').value;
   const note = document.getElementById('orderNote').value.trim();
 
@@ -1202,13 +1239,13 @@ async function sendOrder(event) {
 
 
 
-  if (!address || address.length < 8) {
+  if (fulfillmentType === 'entrega' && (!address || address.length < 8)) {
     alert('Informe um endereço válido.');
     return;
   }
 
   try {
-    await saveCurrentAddressIfNeeded(address);
+    if (fulfillmentType === 'entrega') await saveCurrentAddressIfNeeded(address);
 
     const response = await fetch('/api/orders', {
       method: 'POST',
@@ -1217,6 +1254,7 @@ async function sendOrder(event) {
         customer_name: currentCustomer ? currentCustomer.name : name,
         customer_phone: currentCustomer ? currentCustomer.phone : '',
         address: address,
+        fulfillment_type: fulfillmentType,
         payment: payment,
         note: note,
         items: cart.map(item => ({
@@ -1255,7 +1293,7 @@ async function sendOrder(event) {
     }
 
     // 🔹 GERAR MENSAGEM COM ID
-    const message = gerarMensagem(cart, data.orderId, name, address, payment, note);
+    const message = gerarMensagem(cart, data.orderId, name, address, payment, note, fulfillmentType);
 
     const url = `https://wa.me/${whatsappNumber}?text=${encodeURIComponent(message)}`;
 
@@ -1272,7 +1310,7 @@ async function sendOrder(event) {
 }
 
 
-function gerarMensagem(cart, orderId, name, address, payment, note) {
+function gerarMensagem(cart, orderId, name, address, payment, note, fulfillmentType = 'entrega') {
   let msg = `Pedido #${orderId}\n\n`;
 
   let total = 0;
@@ -1321,7 +1359,7 @@ function gerarMensagem(cart, orderId, name, address, payment, note) {
   msg += `Total dos produtos: R$ ${total
     .toFixed(2)
     .replace('.', ',')}\n`;
-  msg += `Taxa de entrega: a confirmar pelo WhatsApp\n\n`;
+  msg += fulfillmentType === 'retirada' ? `Modalidade: RETIRADA NA LOJA\nTaxa de entrega: não se aplica\n\n` : `Modalidade: ENTREGA\nTaxa de entrega: a confirmar pelo WhatsApp\n\n`;
 
   // ================= DADOS DO CLIENTE =================
 

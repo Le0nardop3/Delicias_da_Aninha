@@ -592,6 +592,7 @@ app.get('/api/customer/orders', requireCustomerAuth, async (req, res) => {
         customer_name,
         customer_phone,
         address,
+        fulfillment_type,
         payment,
         note,
         total,
@@ -2052,9 +2053,25 @@ app.post('/api/orders', async (req, res) => {
       customer_name,
       customer_phone,
       address,
+      fulfillment_type,
       payment,
       note
     } = req.body;
+
+    const fulfillmentType = String(fulfillment_type || 'entrega').trim().toLowerCase();
+    if (!['entrega', 'retirada'].includes(fulfillmentType)) {
+      return res.status(400).json({ error: 'Modalidade de pedido inválida.' });
+    }
+    const storeSettings = await db.get('SELECT delivery_enabled, pickup_enabled, is_open FROM settings WHERE id = 1');
+    if (Number(storeSettings?.is_open ?? 1) !== 1) return res.status(403).json({ error: 'Loja fechada para pedidos.' });
+    if ((fulfillmentType === 'entrega' && Number(storeSettings?.delivery_enabled ?? 1) !== 1) ||
+        (fulfillmentType === 'retirada' && Number(storeSettings?.pickup_enabled ?? 1) !== 1)) {
+      return res.status(400).json({ error: 'Modalidade indisponível no momento.' });
+    }
+    const finalAddress = fulfillmentType === 'retirada' ? 'RETIRADA NA LOJA' : String(address || '').trim();
+    if (fulfillmentType === 'entrega' && finalAddress.length < 8) {
+      return res.status(400).json({ error: 'Informe um endereço de entrega válido.' });
+    }
 
     if (!Array.isArray(items) || items.length === 0) {
       return res.status(400).json({
@@ -2246,19 +2263,21 @@ app.post('/api/orders', async (req, res) => {
         customer_name,
         customer_phone,
         address,
+        fulfillment_type,
         payment,
         note,
         total,
         operation_status,
         payment_status
       )
-      VALUES ($1, $2, $3, $4, $5, $6, $7, 'aguardando_whatsapp', $8)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'aguardando_whatsapp', $9)
       RETURNING id
     `, [
       customerId,
       finalCustomerName,
       finalCustomerPhone,
-      String(address || '').trim(),
+      finalAddress,
+      fulfillmentType,
       String(payment || '').trim(),
       String(note || '').trim(),
       total,
@@ -2402,6 +2421,7 @@ app.get('/api/admin/operation/orders', requireAuth, async (req, res) => {
         customer_name,
         customer_phone,
         address,
+        fulfillment_type,
         payment,
         payment_status,
         paid_at,
@@ -2636,6 +2656,7 @@ function buildPrintableOrder(order) {
   printLines.push(`PEDIDO #${order.id}`);
   printLines.push(`Cliente: ${order.customer_name || 'Não informado'}`);
   if (order.customer_phone) printLines.push(`Telefone: ${order.customer_phone}`);
+  printLines.push(`Modalidade: ${order.fulfillment_type === 'retirada' ? 'RETIRADA NA LOJA' : 'ENTREGA'}`);
   if (order.address) printLines.push(`Entrega/retirada: ${order.address}`);
   if (order.payment) printLines.push(`Pagamento: ${order.payment}`);
   printLines.push('');

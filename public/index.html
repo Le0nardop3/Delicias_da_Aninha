@@ -145,7 +145,7 @@
       <div class="cart-items" id="cartItems"></div>
       <div class="cart-total">Total dos produtos: <strong id="cartTotal">R$ 0,00</strong></div>
 
-      <div class="delivery-fee-notice">
+      <div class="delivery-fee-notice" id="deliveryFeeNotice">
         <div class="delivery-fee-icon">🛵</div>
         <div>
           <strong>Taxa de entrega não incluída</strong>
@@ -165,6 +165,15 @@
 
 
 
+
+        <div class="fulfillment-choice" id="fulfillmentChoice">
+          <strong>Como deseja receber seu pedido?</strong>
+          <div class="fulfillment-options">
+            <label class="fulfillment-option"><input type="radio" name="fulfillmentType" value="entrega" checked> 🛵 Entrega <small>Receber no endereço</small></label>
+            <label class="fulfillment-option"><input type="radio" name="fulfillmentType" value="retirada"> 🏠 Retirada <small>Buscar na loja, sem frete</small></label>
+          </div>
+          <small id="fulfillmentFeedback" role="status"></small>
+        </div>
 
         <div class="address-box" id="addressBox">
 

@@ -154,7 +154,7 @@ function formatDateTime(value) {
 
 function deliveryLabel(order) {
   const address = String(order.address || '').trim();
-  return address ? '🛵 Entrega' : '🏠 Retirada';
+  return order.fulfillment_type === 'retirada' || address === 'RETIRADA NA LOJA' ? '🏠 Retirada' : '🛵 Entrega';
 }
 
 function itemCount(order) {
